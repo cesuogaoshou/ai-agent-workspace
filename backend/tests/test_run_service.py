@@ -1,5 +1,20 @@
+from typing import Any
+
 from backend.app.agent.events import PublicRunEvent
+from backend.app.llm.provider import LlmMessage
+from backend.app.services.run_service import RunService
 from backend.app.services.run_store import InMemoryRunStore
+from backend.app.tools.calculator import CalculatorTool
+from backend.app.tools.registry import ToolRegistry
+
+
+class FinalAnswerProvider:
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+    ) -> LlmMessage:
+        return LlmMessage(role="assistant", content="done")
 
 
 def test_run_store_saves_run_and_events() -> None:
@@ -126,3 +141,20 @@ def test_run_store_returns_snapshot_event_payloads() -> None:
     saved_event = store.list_events(run["id"])[0]
     assert isinstance(saved_event, PublicRunEvent)
     assert saved_event.payload == {"status": "running"}
+
+
+def test_run_service_creates_completed_run_with_events() -> None:
+    store = InMemoryRunStore()
+    service = RunService(
+        store=store,
+        provider=FinalAnswerProvider(),
+        registry=ToolRegistry([CalculatorTool()]),
+        max_steps=4,
+    )
+
+    result = service.create_run("Say done.")
+
+    assert result["status"] == "success"
+    assert result["final_answer"] == "done"
+    events = store.list_events(result["id"])
+    assert [event.event_type for event in events] == ["status_change", "final_answer"]
