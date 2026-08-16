@@ -1,160 +1,132 @@
 <script setup lang="ts">
-import type { RunSummary } from "./types/agent";
+import { onMounted, ref } from "vue";
+import { createRun, getRun, listRuns } from "./api/agent";
+import RunComposer from "./components/RunComposer.vue";
+import RunList from "./components/RunList.vue";
+import type { AgentRun, RunSummary } from "./types/agent";
 
-interface TimelineEvent {
-  sequence: number;
-  eventType: "status_change" | "tool_call" | "final_answer";
-  title: string;
-  detail: string;
-  timestamp: string;
+const runs = ref<RunSummary[]>([]);
+const selectedRun = ref<AgentRun | null>(null);
+const loadingRuns = ref(false);
+const submitting = ref(false);
+const error = ref<string | null>(null);
+
+function sortNewestFirst(items: RunSummary[]): RunSummary[] {
+  return [...items].sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at));
 }
 
-const sampleRuns: RunSummary[] = [
-  {
-    id: "run_3",
-    task: "Summarize workspace trace requirements",
-    status: "success",
-    final_answer: "The selected run detail will show the backend final answer, status, timestamps, and public trace events.",
-    error: null,
-    created_at: "10:42",
-    finished_at: "10:42",
-    step_count: 4,
-    tool_call_count: 1
-  },
-  {
-    id: "run_2",
-    task: "Read sample.md and report key facts",
-    status: "failed",
-    final_answer: null,
-    error: "Sample backend error",
-    created_at: "10:17",
-    finished_at: "10:18",
-    step_count: 3,
-    tool_call_count: 1
-  },
-  {
-    id: "run_1",
-    task: "Calculate 29 * 3",
-    status: "success",
-    final_answer: "87",
-    error: null,
-    created_at: "09:58",
-    finished_at: "09:59",
-    step_count: 5,
-    tool_call_count: 2
+function formatDate(value: string | null): string {
+  if (!value) {
+    return "Not finished";
   }
-];
 
-const timelineEvents: TimelineEvent[] = [
-  {
-    sequence: 1,
-    eventType: "status_change",
-    title: "Run started",
-    detail: "The agent accepted the task and entered the execution loop.",
-    timestamp: "10:42:01"
-  },
-  {
-    sequence: 2,
-    eventType: "tool_call",
-    title: "Tool call: file_reader",
-    detail: "Input and output payloads will expand here in the trace UI.",
-    timestamp: "10:42:03"
-  },
-  {
-    sequence: 3,
-    eventType: "final_answer",
-    title: "Final answer",
-    detail: "The backend response final answer will render here.",
-    timestamp: "10:42:05"
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
   }
-];
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
+async function selectRun(run: RunSummary) {
+  error.value = null;
+  try {
+    selectedRun.value = await getRun(run.id);
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : "Failed to load run.";
+  }
+}
+
+async function loadRuns(preferredRunId?: string) {
+  loadingRuns.value = true;
+  error.value = null;
+
+  try {
+    const response = await listRuns();
+    const sortedRuns = sortNewestFirst(response.items);
+    runs.value = sortedRuns;
+
+    const currentId = preferredRunId ?? selectedRun.value?.id;
+    const nextSelection = sortedRuns.find((run) => run.id === currentId) ?? sortedRuns[0];
+    if (nextSelection) {
+      await selectRun(nextSelection);
+    } else {
+      selectedRun.value = null;
+    }
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : "Failed to load runs.";
+  } finally {
+    loadingRuns.value = false;
+  }
+}
+
+async function submitRun(payload: { task: string; maxSteps?: number }) {
+  submitting.value = true;
+  error.value = null;
+
+  try {
+    const createdRun = await createRun(payload.task, payload.maxSteps);
+    selectedRun.value = createdRun;
+    await loadRuns(createdRun.id);
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : "Failed to create run.";
+  } finally {
+    submitting.value = false;
+  }
+}
+
+onMounted(() => {
+  void loadRuns();
+});
 </script>
 
 <template>
   <main class="workspace-shell" aria-label="AI Agent Workspace">
     <aside class="sidebar" aria-label="Run controls">
-      <section class="panel composer-panel" aria-labelledby="composer-heading">
-        <div>
-          <p class="section-label">Task Composer</p>
-          <h1 id="composer-heading">AI Agent Workspace</h1>
-        </div>
-
-        <label class="field-label" for="task">Task</label>
-        <textarea
-          id="task"
-          rows="6"
-          placeholder="Ask the agent to inspect files, call tools, or explain a trace."
-        ></textarea>
-
-        <div class="composer-actions">
-          <label class="step-field" for="max-steps">
-            <span>Max steps</span>
-            <input id="max-steps" type="number" min="1" max="20" value="6" />
-          </label>
-          <button type="button">Create run</button>
-        </div>
-      </section>
-
-      <section class="panel run-list-panel" aria-labelledby="runs-heading">
-        <div class="panel-header">
-          <div>
-            <p class="section-label">Run List</p>
-            <h2 id="runs-heading">Recent runs</h2>
-          </div>
-          <span class="count">{{ sampleRuns.length }}</span>
-        </div>
-
-        <ol class="run-list">
-          <li
-            v-for="run in sampleRuns"
-            :key="run.id"
-            class="run-item"
-            :class="{ selected: run.id === 'run_3' }"
-          >
-            <div class="run-item-top">
-              <span class="run-id">{{ run.id }}</span>
-              <span class="status" :class="run.status">{{ run.status }}</span>
-            </div>
-            <p>{{ run.task }}</p>
-            <div class="run-meta">
-              <span>{{ run.created_at }}</span>
-              <span>{{ run.step_count }} steps</span>
-              <span>{{ run.tool_call_count }} tools</span>
-            </div>
-          </li>
-        </ol>
-      </section>
+      <RunComposer :submitting="submitting" :error="error" @submit="submitRun" />
+      <RunList :runs="runs" :selected-run-id="selectedRun?.id ?? null" :loading="loadingRuns" @select="selectRun" />
     </aside>
 
     <section class="main-pane" aria-label="Run detail">
-      <section class="panel detail-panel" aria-labelledby="detail-heading">
+      <section v-if="selectedRun" class="panel detail-panel" aria-labelledby="detail-heading">
         <div class="panel-header">
           <div>
             <p class="section-label">Run Detail</p>
-            <h2 id="detail-heading">run_3</h2>
+            <h2 id="detail-heading">{{ selectedRun.id }}</h2>
           </div>
-          <span class="status success">success</span>
+          <span class="status" :class="selectedRun.status">{{ selectedRun.status }}</span>
         </div>
 
         <div class="detail-grid">
           <div>
             <span class="detail-label">Task</span>
-            <p>Summarize workspace trace requirements</p>
+            <p>{{ selectedRun.task }}</p>
           </div>
           <div>
             <span class="detail-label">Created</span>
-            <p>10:42</p>
+            <p>{{ formatDate(selectedRun.created_at) }}</p>
           </div>
           <div>
             <span class="detail-label">Finished</span>
-            <p>10:42</p>
+            <p>{{ formatDate(selectedRun.finished_at) }}</p>
           </div>
         </div>
 
         <div class="answer-block">
-          <span class="detail-label">Final answer</span>
-          <p>The selected run detail will show the backend final answer, status, timestamps, and public trace events.</p>
+          <span class="detail-label">{{ selectedRun.error ? "Error" : "Final answer" }}</span>
+          <p>{{ selectedRun.error ?? selectedRun.final_answer ?? "This run has not produced a final answer yet." }}</p>
         </div>
+      </section>
+
+      <section v-else class="panel detail-panel empty-detail" aria-labelledby="detail-heading">
+        <p class="section-label">Run Detail</p>
+        <h2 id="detail-heading">Select a run</h2>
+        <p>No run is selected yet.</p>
       </section>
 
       <section class="panel timeline-panel" aria-labelledby="timeline-heading">
@@ -165,19 +137,7 @@ const timelineEvents: TimelineEvent[] = [
           </div>
         </div>
 
-        <ol class="timeline">
-          <li v-for="event in timelineEvents" :key="event.sequence" class="timeline-event">
-            <div class="event-marker">{{ event.sequence }}</div>
-            <div class="event-body">
-              <div class="event-topline">
-                <span class="event-type">{{ event.eventType }}</span>
-                <time>{{ event.timestamp }}</time>
-              </div>
-              <h3>{{ event.title }}</h3>
-              <p>{{ event.detail }}</p>
-            </div>
-          </li>
-        </ol>
+        <p class="empty-state">Task 4 will add the selected run event timeline.</p>
       </section>
     </section>
   </main>

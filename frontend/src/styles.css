@@ -38,6 +38,11 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 textarea,
 input {
   width: 100%;
@@ -184,6 +189,26 @@ h3 {
   background: #fee2e2;
 }
 
+.status {
+  color: #334155;
+  background: #e2e8f0;
+}
+
+.error-message {
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #991b1b;
+  background: #fef2f2;
+  line-height: 1.45;
+}
+
+.empty-state {
+  margin-top: 16px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
 .run-list,
 .timeline {
   display: grid;
@@ -195,16 +220,26 @@ h3 {
 
 .run-item {
   display: grid;
+  width: 100%;
   gap: 8px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 12px;
+  color: inherit;
   background: #f8fafc;
+  text-align: left;
 }
 
 .run-item.selected {
   border-color: #2563eb;
   background: #eff6ff;
+}
+
+.run-item:hover,
+.run-item:focus-visible {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  outline: none;
 }
 
 .run-item-top,
@@ -224,12 +259,19 @@ h3 {
   font-weight: 800;
 }
 
-.run-item p,
+.run-task,
 .detail-grid p,
 .answer-block p,
 .event-body p {
   color: #334155;
   line-height: 1.5;
+}
+
+.run-task {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .run-meta,
@@ -262,6 +304,11 @@ h3 {
 
 .answer-block {
   margin-top: 14px;
+}
+
+.empty-detail {
+  display: grid;
+  gap: 8px;
 }
 
 .timeline-event {
