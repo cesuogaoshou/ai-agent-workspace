@@ -67,22 +67,21 @@ def test_agent_run_success_serializes_trace_steps(monkeypatch: pytest.MonkeyPatc
 
     assert response.status_code == 200
     body = response.json()
-    assert body == {
-        "task": "answer directly",
+    assert body["id"].startswith("run_")
+    assert body["task"] == "answer directly"
+    assert body["status"] == "success"
+    assert body["final_answer"] == "done"
+    assert body["error"] is None
+    assert isinstance(body["created_at"], str)
+    assert isinstance(body["finished_at"], str)
+    assert [step["event_type"] for step in body["steps"]] == [
+        "status_change",
+        "final_answer",
+    ]
+    assert body["steps"][1]["payload"] == {
+        "step_number": 1,
         "status": "success",
         "final_answer": "done",
-        "steps": [
-            {
-                "step_number": 1,
-                "step_type": "final_answer",
-                "status": "success",
-                "tool_name": None,
-                "tool_input": None,
-                "tool_output": None,
-                "error": None,
-            }
-        ],
-        "error": None,
     }
 
 

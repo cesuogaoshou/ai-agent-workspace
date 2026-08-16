@@ -26,9 +26,36 @@ class TraceStepResponse(BaseModel):
     error: str | None = None
 
 
+class RunSummaryResponse(BaseModel):
+    id: str
+    task: str
+    status: str
+    final_answer: str | None = None
+    error: str | None = None
+    created_at: str
+    finished_at: str | None = None
+    step_count: int
+    tool_call_count: int
+
+
+class RunListResponse(BaseModel):
+    items: list[RunSummaryResponse]
+
+
+class RunEventResponse(BaseModel):
+    run_id: str
+    event_type: str
+    sequence: int
+    payload: dict[str, Any]
+    created_at: str
+
+
 class AgentRunResponse(BaseModel):
+    id: str | None = None
     task: str
     status: str
     final_answer: str | None
-    steps: list[TraceStepResponse]
+    steps: list[TraceStepResponse | RunEventResponse]
     error: str | None = None
+    created_at: str | None = None
+    finished_at: str | None = None
