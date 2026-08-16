@@ -11,6 +11,15 @@ Start each new session by reading these files:
 
 Read deeper documentation only when it is relevant to the current task.
 
+## Project Context
+
+- Project name: AI Agent Workspace.
+- Goal: build a visual, traceable, extensible single-Agent workspace.
+- Current implementation phase: documentation complete; application source code not started.
+- Recommended next implementation target: v0.1 Minimal Agent.
+- Preferred stack direction: Vue 3 + TypeScript frontend, FastAPI + Python backend, SQLite + SQLAlchemy persistence.
+- `docs/` and `agent/` are local documentation directories by current user request and are ignored by Git.
+
 ## Working Mode
 
 - Keep changes small, scoped, and verifiable.
@@ -19,21 +28,28 @@ Read deeper documentation only when it is relevant to the current task.
 - Update AI working documentation in `agent/` after meaningful work.
 - Record durable decisions in `agent/DECISIONS.md`.
 - Refresh `docs/PROJECT_INDEX.md`, `agent/TASK.md`, and `agent/HANDOFF.md` after completing a phase or sub-phase.
+- Do not expand the project into Multi-Agent, SaaS, auth, payment, Kubernetes, Redis/Celery, Browser Agent, or complex Vector Memory unless the user explicitly reopens that scope.
+- First understand and implement the raw Tool Calling and Agent Loop mechanics before introducing LangGraph.
+- Keep private Chain-of-Thought out of frontend traces; expose only public execution events, tool calls, tool results, status changes, and final answers.
 
 ## Git
 
-- This workspace may start without Git initialized.
+- Repository: `https://github.com/cesuogaoshou/ai-agent-workspace.git`.
+- Branch: `main`.
 - Do not overwrite or revert user changes unless explicitly requested.
-- If Git is initialized later, keep `agent/` as AI working documentation and usually ignore it unless the user explicitly wants it versioned.
+- Keep `agent/` as AI working documentation and ignored by Git unless the user explicitly wants it versioned.
+- Keep `docs/` ignored by Git per current user request. Local docs still matter for project coordination.
 
 ## Verification
 
 - Run the minimum practical verification before claiming work is complete.
 - Document verification commands and results in `agent/MEMORY.md`.
 - If verification cannot be run, state why in the final response and in the handoff when relevant.
+- For documentation-only work, verify by reading edited Markdown and checking for stale placeholders.
+- For future implementation work, add concrete lint, test, build, and manual QA commands as soon as the stack is scaffolded.
 
 ## Local Environment Notes
 
 - Current project root: `D:\demo\ai-agent-workspace`
 - Current initialization date: 2026-08-15
-- No project stack has been selected yet.
+- Project direction was defined from `F:\下载\AI_Agent_Workspace_开发方案.md`.

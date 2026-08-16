@@ -1,2 +1,5 @@
 # AI working notes are local handoff state by default.
 agent/
+
+# Project documentation is kept local by request.
+docs/
