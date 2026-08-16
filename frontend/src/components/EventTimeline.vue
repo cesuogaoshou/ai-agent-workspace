@@ -1,10 +1,6 @@
 <script lang="ts">
-const PRIVATE_PAYLOAD_KEY_PATTERN = /(chain[_-]?of[_-]?thought|private[_-]?reasoning|reasoning|thought)/i;
-
-export function publicFallbackPayload(payload: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(payload).filter(([key]) => !PRIVATE_PAYLOAD_KEY_PATTERN.test(key))
-  );
+export function eventPayloadJson(payload: Record<string, unknown>): string {
+  return JSON.stringify(payload, null, 2);
 }
 </script>
 
@@ -70,7 +66,7 @@ function payloadString(payload: Record<string, unknown>, key: string, fallback: 
             <p>Public event recorded.</p>
             <details>
               <summary>Payload</summary>
-              <pre>{{ JSON.stringify(publicFallbackPayload(event.payload), null, 2) }}</pre>
+              <pre>{{ eventPayloadJson(event.payload) }}</pre>
             </details>
           </div>
         </div>

@@ -22,6 +22,10 @@ export function displayError(error: string | null): string {
   const firstLine = error?.split(/\r?\n/).find((line) => line.trim().length > 0);
   return firstLine?.trim() || "Agent run failed.";
 }
+
+export function finalAnswerText(finalAnswer: string | null): string {
+  return finalAnswer ?? "This run has not produced a final answer yet.";
+}
 </script>
 
 <script setup lang="ts">
@@ -67,9 +71,9 @@ defineProps<{
       <p>{{ displayError(run.error) }}</p>
     </div>
 
-    <div v-else class="answer-block">
+    <div class="answer-block">
       <span class="detail-label">Final answer</span>
-      <p>{{ run.final_answer ?? "This run has not produced a final answer yet." }}</p>
+      <p>{{ finalAnswerText(run.final_answer) }}</p>
     </div>
   </section>
 

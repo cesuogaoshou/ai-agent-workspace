@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import EventTimeline, { publicFallbackPayload } from "./EventTimeline.vue";
-import RunDetail, { displayError, formatDateTime } from "./RunDetail.vue";
+import EventTimeline, { eventPayloadJson } from "./EventTimeline.vue";
+import RunDetail, { displayError, finalAnswerText, formatDateTime } from "./RunDetail.vue";
 import ToolCallCard, { getPayloadString, getPayloadValue } from "./ToolCallCard.vue";
 
 describe("trace display components", () => {
@@ -20,6 +20,11 @@ describe("trace display components", () => {
     expect(displayError(null)).toBe("Agent run failed.");
   });
 
+  it("formats final answer text independently from failed-run errors", () => {
+    expect(finalAnswerText("partial answer")).toBe("partial answer");
+    expect(finalAnswerText(null)).toBe("This run has not produced a final answer yet.");
+  });
+
   it("reads only known public tool payload fields", () => {
     const payload = {
       tool_name: "calculator",
@@ -32,14 +37,12 @@ describe("trace display components", () => {
     expect(getPayloadValue(payload, "private_reasoning")).toBeUndefined();
   });
 
-  it("filters reasoning-like fields from unknown event fallback payloads", () => {
-    expect(
-      publicFallbackPayload({
-        message: "visible",
-        private_reasoning: "hidden",
-        chain_of_thought: "hidden",
-        thought: "hidden"
-      })
-    ).toEqual({ message: "visible" });
+  it("serializes unknown public event payloads as received from the backend", () => {
+    const payload = {
+      message: "visible",
+      backend_field: { nested: true }
+    };
+
+    expect(eventPayloadJson(payload)).toBe(JSON.stringify(payload, null, 2));
   });
 });
