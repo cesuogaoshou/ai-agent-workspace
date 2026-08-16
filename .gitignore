@@ -3,3 +3,8 @@ agent/
 
 # Project documentation is kept local by request.
 docs/
+
+# Local secrets and runtime configuration.
+.env
+.env.*
+!.env.example
