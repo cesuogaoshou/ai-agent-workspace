@@ -160,9 +160,9 @@ def test_agent_loop_sends_tool_response_in_message_history() -> None:
 
 
 def test_agent_loop_emits_public_events_for_tool_and_final_answer() -> None:
-    events: list[dict[str, object]] = []
+    events: list[dict[str, Any]] = []
 
-    def capture(event: dict[str, object]) -> None:
+    def capture(event: dict[str, Any]) -> None:
         events.append(event)
 
     loop = AgentLoop(FakeProvider(), ToolRegistry([CalculatorTool()]), max_steps=4, on_event=capture)
@@ -172,3 +172,22 @@ def test_agent_loop_emits_public_events_for_tool_and_final_answer() -> None:
     assert [event["event_type"] for event in events] == ["tool_call", "final_answer"]
     assert events[0]["payload"]["tool_name"] == "calculator"
     assert events[0]["payload"]["status"] == "success"
+    assert events[1]["payload"] == {
+        "step_number": 2,
+        "status": "success",
+        "final_answer": "The result is 4.",
+    }
+
+
+def test_agent_loop_emits_status_change_event_when_max_steps_reached() -> None:
+    events: list[dict[str, Any]] = []
+
+    def capture(event: dict[str, Any]) -> None:
+        events.append(event)
+
+    loop = AgentLoop(EndlessToolCallProvider(), ToolRegistry([CalculatorTool()]), max_steps=2, on_event=capture)
+    result = loop.run("Keep calculating.")
+
+    assert result.status == "failed"
+    assert [event["event_type"] for event in events] == ["tool_call", "tool_call", "status_change"]
+    assert events[2]["payload"] == {"status": "failed", "error": "Max steps reached."}
