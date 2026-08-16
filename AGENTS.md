@@ -15,8 +15,8 @@ Read deeper documentation only when it is relevant to the current task.
 
 - Project name: AI Agent Workspace.
 - Goal: build a visual, traceable, extensible single-Agent workspace.
-- Current implementation phase: documentation complete; application source code not started.
-- Recommended next implementation target: v0.1 Minimal Agent.
+- Current implementation phase: v0.2A Backend Execution Trace complete and pushed on `feature/v0.1-minimal-agent`.
+- Recommended next implementation target: v0.2B Frontend Trace UI.
 - Preferred stack direction: Vue 3 + TypeScript frontend, FastAPI + Python backend, SQLite + SQLAlchemy persistence.
 - `docs/` and `agent/` are local documentation directories by current user request and are ignored by Git.
 
@@ -35,10 +35,11 @@ Read deeper documentation only when it is relevant to the current task.
 ## Git
 
 - Repository: `https://github.com/cesuogaoshou/ai-agent-workspace.git`.
-- Branch: `main`.
+- Branch: `feature/v0.1-minimal-agent`.
 - Do not overwrite or revert user changes unless explicitly requested.
 - Keep `agent/` as AI working documentation and ignored by Git unless the user explicitly wants it versioned.
 - Keep `docs/` ignored by Git per current user request. Local docs still matter for project coordination.
+- Current pushed commit for v0.2A: `3b146a5 fix: emit failed run status events`.
 
 ## Verification
 
@@ -47,6 +48,10 @@ Read deeper documentation only when it is relevant to the current task.
 - If verification cannot be run, state why in the final response and in the handoff when relevant.
 - For documentation-only work, verify by reading edited Markdown and checking for stale placeholders.
 - For future implementation work, add concrete lint, test, build, and manual QA commands as soon as the stack is scaffolded.
+- Current backend verification commands:
+  - `.venv\Scripts\python.exe -m pytest backend/tests -v`
+  - `.venv\Scripts\python.exe -m compileall backend`
+- Latest v0.2A backend result: `60 passed, 1 skipped`; compileall exit 0.
 
 ## Local Environment Notes
 
