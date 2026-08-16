@@ -50,11 +50,18 @@ class RunService:
                 on_event=publish,
             ).run(task)
         except Exception as exc:
+            public_error = self.public_failure_error or str(exc)
+            publish(
+                {
+                    "event_type": "status_change",
+                    "payload": {"status": "failed", "error": public_error},
+                }
+            )
             self.store.finish_run(
                 run["id"],
                 status="failed",
                 final_answer=None,
-                error=self.public_failure_error or str(exc),
+                error=public_error,
             )
             raise
         self.store.finish_run(

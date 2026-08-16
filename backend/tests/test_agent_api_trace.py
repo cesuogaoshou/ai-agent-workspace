@@ -164,3 +164,6 @@ def test_failed_provider_run_does_not_expose_sensitive_exception_text(
     assert failed_run["status"] == "failed"
     assert failed_run["error"] == "Agent run failed."
     assert fetched.json()["error"] == "Agent run failed."
+    assert "event: status_change" in events.text
+    assert '"status":"failed"' in events.text
+    assert '"error":"Agent run failed."' in events.text

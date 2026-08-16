@@ -218,7 +218,33 @@ def test_run_service_records_failed_run_when_agent_loop_raises() -> None:
     assert saved["error"] == "provider failed"
     assert saved["finished_at"] is not None
     events = store.list_events("run_1")
-    assert [event.event_type for event in events] == ["status_change"]
+    assert [event.event_type for event in events] == ["status_change", "status_change"]
+    assert [event.sequence for event in events] == [1, 2]
+    assert events[0].payload == {"status": "running"}
+    assert events[1].payload == {"status": "failed", "error": "provider failed"}
+
+
+def test_run_service_failed_status_event_uses_public_failure_error() -> None:
+    store = InMemoryRunStore()
+    service = RunService(
+        store=store,
+        provider=RaisingProvider(),
+        registry=ToolRegistry([]),
+        max_steps=4,
+        public_failure_error="Public failure.",
+    )
+
+    with pytest.raises(RuntimeError, match="provider failed"):
+        service.create_run("Raise.")
+
+    saved = store.get_run("run_1")
+    assert saved is not None
+    assert saved["status"] == "failed"
+    assert saved["error"] == "Public failure."
+    events = store.list_events("run_1")
+    assert [event.event_type for event in events] == ["status_change", "status_change"]
+    assert events[1].sequence == 2
+    assert events[1].payload == {"status": "failed", "error": "Public failure."}
 
 
 def test_run_service_records_tool_call_events_and_serialized_steps() -> None:
