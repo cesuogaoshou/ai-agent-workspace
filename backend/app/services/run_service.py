@@ -38,7 +38,21 @@ class RunService:
             )
 
         publish({"event_type": "status_change", "payload": {"status": "running"}})
-        result = AgentLoop(self.provider, self.registry, self.max_steps, on_event=publish).run(task)
+        try:
+            result = AgentLoop(
+                self.provider,
+                self.registry,
+                self.max_steps,
+                on_event=publish,
+            ).run(task)
+        except Exception as exc:
+            self.store.finish_run(
+                run["id"],
+                status="failed",
+                final_answer=None,
+                error=str(exc),
+            )
+            raise
         self.store.finish_run(
             run["id"],
             status=result.status,

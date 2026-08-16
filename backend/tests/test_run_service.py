@@ -1,5 +1,7 @@
 from typing import Any
 
+import pytest
+
 from backend.app.agent.events import PublicRunEvent
 from backend.app.llm.provider import LlmMessage
 from backend.app.services.run_service import RunService
@@ -15,6 +17,43 @@ class FinalAnswerProvider:
         tools: list[dict[str, Any]],
     ) -> LlmMessage:
         return LlmMessage(role="assistant", content="done")
+
+
+class RaisingProvider:
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+    ) -> LlmMessage:
+        raise RuntimeError("provider failed")
+
+
+class ToolCallThenFinalProvider:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+    ) -> LlmMessage:
+        self.calls += 1
+        if self.calls == 1:
+            return LlmMessage(
+                role="assistant",
+                content=None,
+                tool_calls=[
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {
+                            "name": "calculator",
+                            "arguments": '{"expression":"2+2"}',
+                        },
+                    }
+                ],
+            )
+        return LlmMessage(role="assistant", content="The result is 4.")
 
 
 def test_run_store_saves_run_and_events() -> None:
@@ -148,7 +187,7 @@ def test_run_service_creates_completed_run_with_events() -> None:
     service = RunService(
         store=store,
         provider=FinalAnswerProvider(),
-        registry=ToolRegistry([CalculatorTool()]),
+        registry=ToolRegistry([]),
         max_steps=4,
     )
 
@@ -158,3 +197,63 @@ def test_run_service_creates_completed_run_with_events() -> None:
     assert result["final_answer"] == "done"
     events = store.list_events(result["id"])
     assert [event.event_type for event in events] == ["status_change", "final_answer"]
+
+
+def test_run_service_records_failed_run_when_agent_loop_raises() -> None:
+    store = InMemoryRunStore()
+    service = RunService(
+        store=store,
+        provider=RaisingProvider(),
+        registry=ToolRegistry([]),
+        max_steps=4,
+    )
+
+    with pytest.raises(RuntimeError, match="provider failed"):
+        service.create_run("Raise.")
+
+    saved = store.get_run("run_1")
+    assert saved is not None
+    assert saved["status"] == "failed"
+    assert saved["final_answer"] is None
+    assert saved["error"] == "provider failed"
+    assert saved["finished_at"] is not None
+    events = store.list_events("run_1")
+    assert [event.event_type for event in events] == ["status_change"]
+
+
+def test_run_service_records_tool_call_events_and_serialized_steps() -> None:
+    store = InMemoryRunStore()
+    service = RunService(
+        store=store,
+        provider=ToolCallThenFinalProvider(),
+        registry=ToolRegistry([CalculatorTool()]),
+        max_steps=4,
+    )
+
+    result = service.create_run("What is 2+2?")
+
+    assert result["status"] == "success"
+    assert result["final_answer"] == "The result is 4."
+    events = store.list_events(result["id"])
+    assert [event.event_type for event in events] == [
+        "status_change",
+        "tool_call",
+        "final_answer",
+    ]
+    assert [event.sequence for event in events] == [1, 2, 3]
+    assert {event.run_id for event in events} == {result["id"]}
+    assert events[0].payload == {"status": "running"}
+    assert events[1].payload == {
+        "step_number": 1,
+        "tool_name": "calculator",
+        "status": "success",
+        "tool_input": {"expression": "2+2"},
+        "tool_output": {"result": 4},
+        "error": None,
+    }
+    assert events[2].payload == {
+        "step_number": 2,
+        "status": "success",
+        "final_answer": "The result is 4.",
+    }
+    assert result["steps"] == [event.as_dict() for event in events]
