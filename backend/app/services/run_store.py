@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime, timezone
 from itertools import count
 from typing import Any
@@ -30,7 +31,7 @@ class InMemoryRunStore:
         return run.copy()
 
     def append_event(self, run_id: str, event: PublicRunEvent) -> None:
-        self._events[run_id].append(event)
+        self._events[run_id].append(_snapshot_event(event))
         if event.event_type == "tool_call":
             self._runs[run_id]["tool_call_count"] += 1
         if event.event_type in {"tool_call", "final_answer"}:
@@ -56,4 +57,14 @@ class InMemoryRunStore:
         return [run.copy() for run in self._runs.values()]
 
     def list_events(self, run_id: str) -> list[PublicRunEvent]:
-        return list(self._events.get(run_id, []))
+        return [_snapshot_event(event) for event in self._events.get(run_id, [])]
+
+
+def _snapshot_event(event: PublicRunEvent) -> PublicRunEvent:
+    return PublicRunEvent(
+        run_id=event.run_id,
+        event_type=event.event_type,
+        sequence=event.sequence,
+        payload=deepcopy(event.payload),
+        created_at=event.created_at,
+    )
