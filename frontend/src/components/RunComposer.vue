@@ -11,7 +11,7 @@ const emit = defineEmits<{
 }>();
 
 const task = ref("");
-const maxSteps = ref<number | null>(null);
+const maxSteps = ref<number | string | null>(null);
 
 const isBlank = computed(() => task.value.trim().length === 0);
 const canSubmit = computed(() => !props.submitting && !isBlank.value);
@@ -21,9 +21,11 @@ function submitRun() {
     return;
   }
 
+  const numericMaxSteps = typeof maxSteps.value === "number" && Number.isFinite(maxSteps.value) ? maxSteps.value : undefined;
+
   emit("submit", {
     task: task.value,
-    maxSteps: maxSteps.value ?? undefined
+    maxSteps: numericMaxSteps
   });
 }
 </script>
