@@ -1,51 +1,59 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { createRun, getRun, listRuns } from "./api/agent";
+import { createRun, getRun, getRunEvents, listRuns } from "./api/agent";
+import EventTimeline from "./components/EventTimeline.vue";
+import RunDetail from "./components/RunDetail.vue";
 import RunComposer from "./components/RunComposer.vue";
 import RunList from "./components/RunList.vue";
-import type { AgentRun, RunSummary } from "./types/agent";
+import type { AgentRun, RunEvent, RunSummary } from "./types/agent";
 
 const runs = ref<RunSummary[]>([]);
 const selectedRun = ref<AgentRun | null>(null);
+const events = ref<RunEvent[]>([]);
 const loadingRuns = ref(false);
+const loadingEvents = ref(false);
 const submitting = ref(false);
 const error = ref<string | null>(null);
+const eventsError = ref<string | null>(null);
 const latestSelectionRunId = ref<string | null>(null);
 
 function sortNewestFirst(items: RunSummary[]): RunSummary[] {
   return [...items].sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at));
 }
 
-function formatDate(value: string | null): string {
-  if (!value) {
-    return "Not finished";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(date);
-}
-
 async function selectRun(run: RunSummary) {
   latestSelectionRunId.value = run.id;
   error.value = null;
+  eventsError.value = null;
+  loadingEvents.value = true;
 
   try {
     const loadedRun = await getRun(run.id);
     if (latestSelectionRunId.value === run.id) {
       selectedRun.value = loadedRun;
+      events.value = loadedRun.steps;
     }
   } catch (caught) {
     if (latestSelectionRunId.value === run.id) {
       error.value = caught instanceof Error ? caught.message : "Failed to load run.";
+      events.value = [];
+      loadingEvents.value = false;
+    }
+    return;
+  }
+
+  try {
+    const loadedEvents = await getRunEvents(run.id);
+    if (latestSelectionRunId.value === run.id) {
+      events.value = loadedEvents;
+    }
+  } catch (caught) {
+    if (latestSelectionRunId.value === run.id) {
+      eventsError.value = caught instanceof Error ? caught.message : "Failed to load events.";
+    }
+  } finally {
+    if (latestSelectionRunId.value === run.id) {
+      loadingEvents.value = false;
     }
   }
 }
@@ -66,6 +74,8 @@ async function loadRuns(preferredRunId?: string) {
     } else {
       latestSelectionRunId.value = null;
       selectedRun.value = null;
+      events.value = [];
+      eventsError.value = null;
     }
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : "Failed to load runs.";
@@ -82,6 +92,7 @@ async function submitRun(payload: { task: string; maxSteps?: number }) {
     const createdRun = await createRun(payload.task, payload.maxSteps);
     latestSelectionRunId.value = createdRun.id;
     selectedRun.value = createdRun;
+    events.value = createdRun.steps;
     await loadRuns(createdRun.id);
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : "Failed to create run.";
@@ -103,52 +114,8 @@ onMounted(() => {
     </aside>
 
     <section class="main-pane" aria-label="Run detail">
-      <section v-if="selectedRun" class="panel detail-panel" aria-labelledby="detail-heading">
-        <div class="panel-header">
-          <div>
-            <p class="section-label">Run Detail</p>
-            <h2 id="detail-heading">{{ selectedRun.id }}</h2>
-          </div>
-          <span class="status" :class="selectedRun.status">{{ selectedRun.status }}</span>
-        </div>
-
-        <div class="detail-grid">
-          <div>
-            <span class="detail-label">Task</span>
-            <p>{{ selectedRun.task }}</p>
-          </div>
-          <div>
-            <span class="detail-label">Created</span>
-            <p>{{ formatDate(selectedRun.created_at) }}</p>
-          </div>
-          <div>
-            <span class="detail-label">Finished</span>
-            <p>{{ formatDate(selectedRun.finished_at) }}</p>
-          </div>
-        </div>
-
-        <div class="answer-block">
-          <span class="detail-label">{{ selectedRun.error ? "Error" : "Final answer" }}</span>
-          <p>{{ selectedRun.error ?? selectedRun.final_answer ?? "This run has not produced a final answer yet." }}</p>
-        </div>
-      </section>
-
-      <section v-else class="panel detail-panel empty-detail" aria-labelledby="detail-heading">
-        <p class="section-label">Run Detail</p>
-        <h2 id="detail-heading">Select a run</h2>
-        <p>No run is selected yet.</p>
-      </section>
-
-      <section class="panel timeline-panel" aria-labelledby="timeline-heading">
-        <div class="panel-header">
-          <div>
-            <p class="section-label">Event Timeline</p>
-            <h2 id="timeline-heading">Public execution events</h2>
-          </div>
-        </div>
-
-        <p class="empty-state">Task 4 will add the selected run event timeline.</p>
-      </section>
+      <RunDetail :run="selectedRun" />
+      <EventTimeline :events="selectedRun ? events : []" :loading="loadingEvents" :error="eventsError" />
     </section>
   </main>
 </template>

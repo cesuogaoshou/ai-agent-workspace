@@ -203,6 +203,11 @@ h3 {
   line-height: 1.45;
 }
 
+.error-block {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
 .empty-state {
   margin-top: 16px;
   color: #64748b;
@@ -253,10 +258,12 @@ h3 {
 }
 
 .run-id,
-.event-type {
+.event-type,
+.mono-text {
   color: #334155;
   font-size: 0.78rem;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .run-task,
@@ -334,6 +341,56 @@ h3 {
   border-radius: 8px;
   padding: 14px;
   background: #ffffff;
+}
+
+.event-content,
+.tool-call-card {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.inline-strong {
+  font-weight: 800;
+}
+
+.event-error,
+.tool-error {
+  color: #b91c1c;
+}
+
+.tool-call-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+details {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  color: #334155;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+pre {
+  overflow: auto;
+  max-width: 100%;
+  margin: 0;
+  border-top: 1px solid #e2e8f0;
+  padding: 12px;
+  color: #0f172a;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 860px) {
