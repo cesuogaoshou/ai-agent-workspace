@@ -123,3 +123,44 @@ def test_unknown_run_and_events_return_404() -> None:
     assert fetched.json() == {"detail": "Run not found."}
     assert events.status_code == 404
     assert events.json() == {"detail": "Run not found."}
+
+
+def test_failed_provider_run_does_not_expose_sensitive_exception_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sensitive_text = "sensitive-token"
+
+    class RaisingDeepSeekProvider:
+        def __init__(self, api_key: str, base_url: str, model: str) -> None:
+            self.api_key = api_key
+            self.base_url = base_url
+            self.model = model
+
+        def complete(
+            self,
+            messages: list[dict[str, Any]],
+            tools: list[dict[str, Any]],
+        ) -> LlmMessage:
+            raise RuntimeError(f"provider failed with {sensitive_text}")
+
+    monkeypatch.setattr("backend.app.api.agent.DeepSeekProvider", RaisingDeepSeekProvider)
+
+    client = TestClient(app, raise_server_exceptions=False)
+    response = client.post("/api/agent/runs", json={"task": "Return done."})
+    listed = client.get("/api/agent/runs")
+    fetched = client.get("/api/agent/runs/run_1")
+    events = client.get("/api/agent/runs/run_1/events")
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Agent run failed."}
+    assert sensitive_text not in response.text
+    assert listed.status_code == 200
+    assert fetched.status_code == 200
+    assert events.status_code == 200
+    for response_text in (listed.text, fetched.text, events.text):
+        assert sensitive_text not in response_text
+        assert "provider failed" not in response_text
+    failed_run = listed.json()["items"][0]
+    assert failed_run["status"] == "failed"
+    assert failed_run["error"] == "Agent run failed."
+    assert fetched.json()["error"] == "Agent run failed."

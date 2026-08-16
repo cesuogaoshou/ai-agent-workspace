@@ -5,7 +5,7 @@ from backend.app.api.tools import build_registry
 from backend.app.config import get_settings
 from backend.app.llm.deepseek import DeepSeekProvider
 from backend.app.schemas.agent import AgentRunResponse, CreateRunRequest, RunListResponse
-from backend.app.services.run_service import RunService
+from backend.app.services.run_service import PUBLIC_RUN_FAILURE_ERROR, RunService
 from backend.app.services.run_store import InMemoryRunStore
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
@@ -28,8 +28,13 @@ def create_run(request: CreateRunRequest) -> AgentRunResponse:
         provider=provider,
         registry=build_registry(),
         max_steps=request.max_steps or settings.agent_max_steps,
+        public_failure_error=PUBLIC_RUN_FAILURE_ERROR,
     )
-    return AgentRunResponse.model_validate(service.create_run(request.task))
+    try:
+        run = service.create_run(request.task)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=PUBLIC_RUN_FAILURE_ERROR) from exc
+    return AgentRunResponse.model_validate(run)
 
 
 @router.get("/runs", response_model=RunListResponse)

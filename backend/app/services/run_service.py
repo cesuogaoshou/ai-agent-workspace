@@ -6,6 +6,8 @@ from backend.app.llm.provider import LlmProvider
 from backend.app.services.run_store import InMemoryRunStore
 from backend.app.tools.registry import ToolRegistry
 
+PUBLIC_RUN_FAILURE_ERROR = "Agent run failed."
+
 
 class RunService:
     def __init__(
@@ -14,11 +16,13 @@ class RunService:
         provider: LlmProvider,
         registry: ToolRegistry,
         max_steps: int,
+        public_failure_error: str | None = None,
     ) -> None:
         self.store = store
         self.provider = provider
         self.registry = registry
         self.max_steps = max_steps
+        self.public_failure_error = public_failure_error
 
     def create_run(self, task: str) -> dict[str, Any]:
         run = self.store.create_run(task)
@@ -50,7 +54,7 @@ class RunService:
                 run["id"],
                 status="failed",
                 final_answer=None,
-                error=str(exc),
+                error=self.public_failure_error or str(exc),
             )
             raise
         self.store.finish_run(

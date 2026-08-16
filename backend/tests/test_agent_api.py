@@ -7,6 +7,7 @@ import pytest
 from backend.app.config import Settings, get_settings
 from backend.app.llm.provider import LlmMessage
 from backend.app.main import app
+from backend.app.services.run_store import InMemoryRunStore
 
 
 @pytest.fixture(autouse=True)
@@ -25,6 +26,7 @@ def isolated_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any
 
     monkeypatch.setattr("backend.app.api.agent.get_settings", fake_get_settings)
     monkeypatch.setattr("backend.app.api.tools.get_settings", fake_get_settings)
+    monkeypatch.setattr("backend.app.api.agent.RUN_STORE", InMemoryRunStore())
     get_settings.cache_clear()
     yield settings_values
     get_settings.cache_clear()
