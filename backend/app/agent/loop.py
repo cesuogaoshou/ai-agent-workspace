@@ -3,7 +3,11 @@ from typing import Any
 
 from backend.app.agent.state import AgentRunResult, TraceStep
 from backend.app.llm.provider import LlmProvider
+from backend.app.tools.base import ToolResult
 from backend.app.tools.registry import ToolRegistry
+
+
+ARGUMENT_ERROR = "Tool arguments must be a JSON object."
 
 
 class AgentLoop:
@@ -26,8 +30,7 @@ class AgentLoop:
             messages.append({"role": "assistant", "content": response.content, "tool_calls": response.tool_calls})
             for tool_call in response.tool_calls:
                 function = tool_call["function"]
-                arguments = json.loads(function.get("arguments") or "{}")
-                result = self.registry.execute(function["name"], arguments)
+                arguments, result = self._execute_tool_call(function)
                 steps.append(
                     TraceStep(
                         step_number=step_number,
@@ -47,3 +50,12 @@ class AgentLoop:
                     }
                 )
         return AgentRunResult(task=task, status="failed", final_answer=None, steps=steps, error="Max steps reached.")
+
+    def _execute_tool_call(self, function: dict[str, Any]) -> tuple[dict[str, Any] | None, ToolResult]:
+        try:
+            arguments = json.loads(function.get("arguments") or "{}")
+        except json.JSONDecodeError:
+            return None, ToolResult(ok=False, error=ARGUMENT_ERROR)
+        if not isinstance(arguments, dict):
+            return None, ToolResult(ok=False, error=ARGUMENT_ERROR)
+        return arguments, self.registry.execute(function["name"], arguments)
