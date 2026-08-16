@@ -2,6 +2,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vue-tsc --noEmit && vite build",
+    "test": "vitest run",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
@@ -11,6 +12,7 @@
   },
   "devDependencies": {
     "typescript": "^5.7.0",
+    "vitest": "^4.1.10",
     "vue-tsc": "^2.2.0"
   }
 }

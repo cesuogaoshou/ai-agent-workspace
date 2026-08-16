@@ -1,12 +1,5 @@
 <script setup lang="ts">
-interface RunSummary {
-  id: string;
-  task: string;
-  status: "success" | "running" | "failed";
-  createdAt: string;
-  stepCount: number;
-  toolCallCount: number;
-}
+import type { RunSummary } from "./types/agent";
 
 interface TimelineEvent {
   sequence: number;
@@ -21,25 +14,34 @@ const sampleRuns: RunSummary[] = [
     id: "run_3",
     task: "Summarize workspace trace requirements",
     status: "success",
-    createdAt: "10:42",
-    stepCount: 4,
-    toolCallCount: 1
+    final_answer: "The selected run detail will show the backend final answer, status, timestamps, and public trace events.",
+    error: null,
+    created_at: "10:42",
+    finished_at: "10:42",
+    step_count: 4,
+    tool_call_count: 1
   },
   {
     id: "run_2",
     task: "Read sample.md and report key facts",
     status: "failed",
-    createdAt: "10:17",
-    stepCount: 3,
-    toolCallCount: 1
+    final_answer: null,
+    error: "Sample backend error",
+    created_at: "10:17",
+    finished_at: "10:18",
+    step_count: 3,
+    tool_call_count: 1
   },
   {
     id: "run_1",
     task: "Calculate 29 * 3",
     status: "success",
-    createdAt: "09:58",
-    stepCount: 5,
-    toolCallCount: 2
+    final_answer: "87",
+    error: null,
+    created_at: "09:58",
+    finished_at: "09:59",
+    step_count: 5,
+    tool_call_count: 2
   }
 ];
 
@@ -115,9 +117,9 @@ const timelineEvents: TimelineEvent[] = [
             </div>
             <p>{{ run.task }}</p>
             <div class="run-meta">
-              <span>{{ run.createdAt }}</span>
-              <span>{{ run.stepCount }} steps</span>
-              <span>{{ run.toolCallCount }} tools</span>
+              <span>{{ run.created_at }}</span>
+              <span>{{ run.step_count }} steps</span>
+              <span>{{ run.tool_call_count }} tools</span>
             </div>
           </li>
         </ol>
