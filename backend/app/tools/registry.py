@@ -14,6 +14,16 @@ class ToolRegistry:
     def names(self) -> list[str]:
         return sorted(self._tools)
 
+    def metadata(self) -> list[dict[str, object]]:
+        return [
+            {
+                "name": tool.name,
+                "description": tool.description,
+                "requires_approval": tool.requires_approval,
+            }
+            for tool in (self._tools[name] for name in self.names())
+        ]
+
     def as_llm_tools(self) -> list[dict[str, Any]]:
         return [
             {
