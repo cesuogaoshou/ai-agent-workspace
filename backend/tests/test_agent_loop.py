@@ -157,3 +157,18 @@ def test_agent_loop_sends_tool_response_in_message_history() -> None:
         "tool_call_id": "call_1",
         "content": '{"result": 4}',
     }
+
+
+def test_agent_loop_emits_public_events_for_tool_and_final_answer() -> None:
+    events: list[dict[str, object]] = []
+
+    def capture(event: dict[str, object]) -> None:
+        events.append(event)
+
+    loop = AgentLoop(FakeProvider(), ToolRegistry([CalculatorTool()]), max_steps=4, on_event=capture)
+    result = loop.run("What is 2+2?")
+
+    assert result.status == "success"
+    assert [event["event_type"] for event in events] == ["tool_call", "final_answer"]
+    assert events[0]["payload"]["tool_name"] == "calculator"
+    assert events[0]["payload"]["status"] == "success"
