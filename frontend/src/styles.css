@@ -174,6 +174,11 @@ h3 {
   background: #e2e8f0;
 }
 
+.status {
+  color: #334155;
+  background: #e2e8f0;
+}
+
 .status.success {
   color: #166534;
   background: #dcfce7;
@@ -187,11 +192,6 @@ h3 {
 .status.failed {
   color: #b91c1c;
   background: #fee2e2;
-}
-
-.status {
-  color: #334155;
-  background: #e2e8f0;
 }
 
 .error-message {

@@ -10,6 +10,7 @@ const selectedRun = ref<AgentRun | null>(null);
 const loadingRuns = ref(false);
 const submitting = ref(false);
 const error = ref<string | null>(null);
+const latestSelectionRunId = ref<string | null>(null);
 
 function sortNewestFirst(items: RunSummary[]): RunSummary[] {
   return [...items].sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at));
@@ -34,11 +35,18 @@ function formatDate(value: string | null): string {
 }
 
 async function selectRun(run: RunSummary) {
+  latestSelectionRunId.value = run.id;
   error.value = null;
+
   try {
-    selectedRun.value = await getRun(run.id);
+    const loadedRun = await getRun(run.id);
+    if (latestSelectionRunId.value === run.id) {
+      selectedRun.value = loadedRun;
+    }
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : "Failed to load run.";
+    if (latestSelectionRunId.value === run.id) {
+      error.value = caught instanceof Error ? caught.message : "Failed to load run.";
+    }
   }
 }
 
@@ -56,6 +64,7 @@ async function loadRuns(preferredRunId?: string) {
     if (nextSelection) {
       await selectRun(nextSelection);
     } else {
+      latestSelectionRunId.value = null;
       selectedRun.value = null;
     }
   } catch (caught) {
@@ -71,6 +80,7 @@ async function submitRun(payload: { task: string; maxSteps?: number }) {
 
   try {
     const createdRun = await createRun(payload.task, payload.maxSteps);
+    latestSelectionRunId.value = createdRun.id;
     selectedRun.value = createdRun;
     await loadRuns(createdRun.id);
   } catch (caught) {

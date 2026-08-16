@@ -21,7 +21,13 @@ function submitRun() {
     return;
   }
 
-  const numericMaxSteps = typeof maxSteps.value === "number" && Number.isFinite(maxSteps.value) ? maxSteps.value : undefined;
+  const numericMaxSteps =
+    typeof maxSteps.value === "number" &&
+    Number.isFinite(maxSteps.value) &&
+    maxSteps.value >= 1 &&
+    maxSteps.value <= 20
+      ? maxSteps.value
+      : undefined;
 
   const payload: { task: string; maxSteps?: number } = { task: task.value };
   if (numericMaxSteps !== undefined) {
