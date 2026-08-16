@@ -23,10 +23,12 @@ function submitRun() {
 
   const numericMaxSteps = typeof maxSteps.value === "number" && Number.isFinite(maxSteps.value) ? maxSteps.value : undefined;
 
-  emit("submit", {
-    task: task.value,
-    maxSteps: numericMaxSteps
-  });
+  const payload: { task: string; maxSteps?: number } = { task: task.value };
+  if (numericMaxSteps !== undefined) {
+    payload.maxSteps = numericMaxSteps;
+  }
+
+  emit("submit", payload);
 }
 </script>
 
