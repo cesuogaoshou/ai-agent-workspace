@@ -91,6 +91,8 @@ async function submitRun(payload: { task: string; maxSteps?: number }) {
   try {
     const createdRun = await createRun(payload.task, payload.maxSteps);
     latestSelectionRunId.value = createdRun.id;
+    eventsError.value = null;
+    loadingEvents.value = false;
     selectedRun.value = createdRun;
     events.value = createdRun.steps;
     await loadRuns(createdRun.id);
