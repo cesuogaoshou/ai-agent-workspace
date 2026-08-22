@@ -1,135 +1,154 @@
 # AI Agent Workspace
 
-AI Agent Workspace 是一个可视化、可追踪、可扩展的单 Agent 工作空间。用户提交任务后，Agent 可以通过 LLM 判断是否需要工具，选择并执行工具，维护运行状态，展示执行 Trace，并生成最终结果。
+AI Agent Workspace is a visual, traceable, extensible single-Agent workspace. A user submits a task, the backend runs a Tool Calling Agent loop, public execution events are recorded, and the frontend shows the run, trace, tool calls, and final result.
 
-项目重点不是继续做普通聊天机器人，而是把 Agent Runtime 的核心机制跑通并讲清楚：
+The project is intentionally not a generic chatbot. The UI emphasizes task execution, tool calls, public trace events, state, and final answers.
 
-- Tool Calling
-- Agent Loop
-- State
-- Workflow
-- Human-in-the-loop
-- Evaluation
-- MCP
+## Current Status
 
-## 当前状态
+- v0.1 Minimal Agent: complete.
+- v0.2A Backend Execution Trace: complete.
+- v0.2B Frontend Trace UI: complete locally on `feature/v0.1-minimal-agent`.
+- Web Search remains stubbed.
+- SQLite persistence, LangGraph, approval flows, MCP, Docker, CI, auth, and SaaS scope remain deferred.
 
-- 项目文档已根据开发方案整理完成。
-- GitHub 仓库已连接到 `https://github.com/cesuogaoshou/ai-agent-workspace.git`。
-- `docs/` 和 `agent/` 按当前约定作为本地文档目录，不再进入 Git 跟踪。
-- 应用源码尚未创建。
-- 下一步建议进入 v0.1 Minimal Agent，实现最小可运行后端/API 和工具调用闭环。
+## Current Stack
 
-## 技术方向
-
-前端：
+Frontend:
 
 - Vue 3
 - TypeScript
 - Vite
-- Pinia
-- Vue Router
-- Element Plus
+- Vitest
 
-后端：
+Backend:
 
 - Python
 - FastAPI
 - Pydantic
-- SQLAlchemy
-- SQLite
 - Uvicorn
-- httpx
+- DeepSeek OpenAI-compatible provider
+- In-memory run store for v0.2
 
-LLM：
-
-- 统一 LLM Provider 层
-- 第一阶段至少接入一个支持 Tool Calling 的模型
-- 预留 OpenAI、DeepSeek 和 OpenAI-compatible Provider 扩展
-
-## 版本路线
-
-```text
-v0.1 Minimal Agent
-  -> Tool Calling / Tool Registry / Agent Loop / 基础工具
-
-v0.2 Agent Loop + Execution Trace
-  -> 多步骤执行 / Tool Call Trace / SSE 实时事件
-
-v0.3 Persistence
-  -> SQLite / SQLAlchemy / 历史 Run 和 Step
-
-v0.4 LangGraph
-  -> 显式 State / Node / Edge / Conditional Edge
-
-v0.5 Human-in-the-loop
-  -> 敏感工具调用审批
-
-v0.6 Memory / State
-  -> 短期状态和 SQLite 长期记录
-
-v0.7 Agent Evaluation
-  -> 固定评估集和量化指标
-
-v0.8 MCP
-  -> 迁移一到两个工具为 MCP Server
-
-v1.0 Project Freeze
-  -> Docker / Tests / CI / Demo / 完整项目展示
-```
-
-## 推荐实现结构
+## Repository Layout
 
 ```text
 frontend/
   src/
     api/
     components/
-    views/
-    stores/
-    router/
     types/
-    utils/
-  package.json
 
 backend/
   app/
     api/
     agent/
-    tools/
     llm/
-    models/
     schemas/
     services/
-    db/
-    main.py
+    tools/
   tests/
-  evaluation/
-  requirements.txt
 
-docker-compose.yml
-.env.example
+workspace_files/
+  sample.md
 ```
 
-## 文档
+Local coordination docs live in `docs/` and `agent/`. They are intentionally ignored by Git in this workspace.
 
-本地文档位于 `docs/`，包括：
+## Backend
 
-- `docs/PROJECT_INDEX.md`
-- `docs/BACKGROUND.md`
-- `docs/REQUIREMENTS.md`
-- `docs/ARCHITECTURE.md`
-- `docs/API.md`
-- `docs/ROADMAP.md`
+Install dependencies into the local virtual environment:
 
-AI 工作文档位于 `agent/`，用于记录任务、交接、操作日志和决策。`docs/` 与 `agent/` 默认不进入 Git。
+```powershell
+.venv\Scripts\pip.exe install -r backend\requirements.txt
+```
 
-## 本地运行
+Start the API server from the repo root:
 
-应用尚未实现，因此暂无安装、启动、测试和构建命令。进入 v0.1 后应补充：
+```powershell
+.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
 
-- 后端依赖安装命令
-- 后端启动命令
-- 前端依赖安装命令
-- 前端启动命令
-- 单元测试或最小验证命令
+Useful backend endpoints:
+
+- `POST /api/agent/runs`
+- `GET /api/agent/runs`
+- `GET /api/agent/runs/{run_id}`
+- `GET /api/agent/runs/{run_id}/events`
+- `GET /api/tools`
+
+## Frontend
+
+Install frontend dependencies:
+
+```powershell
+cd frontend
+npm install
+```
+
+Start the Vite dev server:
+
+```powershell
+cd frontend
+npm run dev
+```
+
+The frontend normally runs at `http://127.0.0.1:5173/` and proxies `/api` to `http://127.0.0.1:8000`.
+
+Build and test:
+
+```powershell
+cd frontend
+npm test
+npm run build
+```
+
+## Verification
+
+Frontend:
+
+```powershell
+cd frontend
+npm test
+npm run build
+```
+
+Backend:
+
+```powershell
+.venv\Scripts\python.exe -m pytest backend/tests -v --basetemp D:\demo\ai-agent-workspace\.tmp-pytest -p no:cacheprovider
+.venv\Scripts\python.exe -m compileall backend
+```
+
+The explicit `--basetemp` and disabled cache are useful in restricted Windows sandbox sessions where the default user temp directory or `.pytest_cache` may be unreadable.
+
+## Version Route
+
+```text
+v0.1 Minimal Agent
+  -> Tool Calling / Tool Registry / Agent Loop / basic tools
+
+v0.2 Agent Loop + Execution Trace
+  -> backend run records, public events, SSE, frontend trace UI
+
+v0.3 Persistence
+  -> SQLite / SQLAlchemy / durable run history
+
+v0.4 LangGraph
+  -> explicit state graph after raw loop mechanics are understood
+
+v0.5 Human-in-the-loop
+  -> sensitive tool approval flow
+
+v0.6 Memory / State
+  -> short-term state and limited durable records
+
+v0.7 Agent Evaluation
+  -> fixed eval cases and metrics
+
+v0.8 MCP
+  -> migrate one or two tools to MCP for comparison
+
+v1.0 Project Freeze
+  -> complete portfolio-ready demo, tests, and packaging
+```
