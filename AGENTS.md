@@ -15,8 +15,8 @@ Read deeper documentation only when it is relevant to the current task.
 
 - Project name: AI Agent Workspace.
 - Goal: build a visual, traceable, extensible single-Agent workspace.
-- Current implementation phase: v0.5 Human-in-the-loop implemented locally; review findings fixed and final verification passed; push pending.
-- Recommended next implementation target: push v0.5, then pause before v0.6 unless explicitly requested.
+- Current implementation phase: v0.5 Human-in-the-loop complete and pushed.
+- Recommended next implementation target: pause before v0.6 unless explicitly requested.
 - Preferred stack direction: Vue 3 + TypeScript frontend, FastAPI + Python backend, SQLite + SQLAlchemy persistence.
 - `docs/` and `agent/` are local documentation directories by current user request and are ignored by Git.
 
@@ -39,7 +39,7 @@ Read deeper documentation only when it is relevant to the current task.
 - Do not overwrite or revert user changes unless explicitly requested.
 - Keep `agent/` as AI working documentation and ignored by Git unless the user explicitly wants it versioned.
 - Keep `docs/` ignored by Git per current user request. Local docs still matter for project coordination.
-- Current pushed commit before v0.5: `b71534e feat: orchestrate agent loop with langgraph`.
+- Current pushed commit for v0.5: `ce9ee57 docs: mark v0.5 verified`.
 
 ## Verification
 
