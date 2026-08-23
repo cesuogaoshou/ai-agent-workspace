@@ -51,7 +51,7 @@ Read deeper documentation only when it is relevant to the current task.
 - Current backend verification commands:
   - `.venv\Scripts\python.exe -m pytest backend/tests -v`
   - `.venv\Scripts\python.exe -m compileall backend`
-- Latest v0.3 backend result: `63 passed, 1 skipped`; compileall exit 0.
+- Latest v0.3 backend result after review fixes: `68 passed, 1 skipped`; compileall exit 0.
 
 ## Local Environment Notes
 

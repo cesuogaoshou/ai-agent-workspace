@@ -71,3 +71,44 @@ def test_agent_api_reads_persisted_run_after_store_reinitializes(
     assert events.status_code == 200
     assert "text/event-stream" in events.headers["content-type"]
     assert created["id"] in events.text
+
+
+def test_agent_api_reads_persisted_failed_run_after_store_reinitializes(
+    persisted_agent_api: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sensitive_text = "secret-provider-detail"
+
+    class RaisingDeepSeekProvider:
+        def __init__(self, api_key: str, base_url: str, model: str) -> None:
+            self.api_key = api_key
+            self.base_url = base_url
+            self.model = model
+
+        def complete(
+            self,
+            messages: list[dict[str, Any]],
+            tools: list[dict[str, Any]],
+        ) -> LlmMessage:
+            raise RuntimeError(sensitive_text)
+
+    monkeypatch.setattr("backend.app.api.agent.DeepSeekProvider", RaisingDeepSeekProvider)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.post("/api/agent/runs", json={"task": "Fail safely."})
+    agent_api.RUN_STORE = None
+
+    listed = client.get("/api/agent/runs")
+    fetched = client.get("/api/agent/runs/run_1")
+    events = client.get("/api/agent/runs/run_1/events")
+
+    assert response.status_code == 500
+    assert listed.json()["items"][0]["status"] == "failed"
+    assert listed.json()["items"][0]["error"] == "Agent run failed."
+    assert fetched.json()["status"] == "failed"
+    assert fetched.json()["error"] == "Agent run failed."
+    assert '"status":"failed"' in events.text
+    assert '"error":"Agent run failed."' in events.text
+    assert sensitive_text not in listed.text
+    assert sensitive_text not in fetched.text
+    assert sensitive_text not in events.text

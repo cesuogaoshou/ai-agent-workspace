@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 from typing import Any, Protocol
 
-from sqlalchemy import JSON, ForeignKey, Integer, String, create_engine, select
+from sqlalchemy import JSON, ForeignKey, Integer, String, create_engine, func, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from backend.app.agent.events import PublicRunEvent
@@ -62,6 +62,7 @@ class InMemoryRunStore:
         return run.copy()
 
     def append_event(self, run_id: str, event: PublicRunEvent) -> None:
+        _validate_event_run_id(run_id, event)
         self._events[run_id].append(_snapshot_event(event))
         if event.event_type == "tool_call":
             self._runs[run_id]["tool_call_count"] += 1
@@ -101,6 +102,11 @@ def _snapshot_event(event: PublicRunEvent) -> PublicRunEvent:
     )
 
 
+def _validate_event_run_id(run_id: str, event: PublicRunEvent) -> None:
+    if event.run_id != run_id:
+        raise ValueError("Event run_id must match target run_id.")
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -117,6 +123,12 @@ class AgentRunRecord(Base):
     finished_at: Mapped[str | None] = mapped_column(String, nullable=True)
     step_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     tool_call_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class RunIdSequenceRecord(Base):
+    __tablename__ = "run_id_sequence"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
 
 class RunEventRecord(Base):
@@ -137,11 +149,13 @@ class SqlAlchemyRunStore:
         self._engine = create_engine(database_url, connect_args=connect_args)
         self._session_factory = sessionmaker(self._engine, expire_on_commit=False)
         Base.metadata.create_all(self._engine)
+        self._seed_run_id_sequence()
 
     def create_run(self, task: str) -> dict[str, Any]:
         with self._session_factory() as session:
+            run_id = self._allocate_run_id(session)
             run = AgentRunRecord(
-                id=self._next_run_id(session),
+                id=run_id,
                 task=task,
                 status="running",
                 final_answer=None,
@@ -156,6 +170,7 @@ class SqlAlchemyRunStore:
             return _run_record_to_dict(run)
 
     def append_event(self, run_id: str, event: PublicRunEvent) -> None:
+        _validate_event_run_id(run_id, event)
         with self._session_factory() as session:
             run = session.get(AgentRunRecord, run_id)
             if run is None:
@@ -200,7 +215,9 @@ class SqlAlchemyRunStore:
 
     def list_runs(self) -> list[dict[str, Any]]:
         with self._session_factory() as session:
-            runs = session.scalars(select(AgentRunRecord).order_by(AgentRunRecord.id)).all()
+            runs = session.scalars(
+                select(AgentRunRecord).order_by(AgentRunRecord.created_at, AgentRunRecord.id)
+            ).all()
             return [_run_record_to_dict(run) for run in runs]
 
     def list_events(self, run_id: str) -> list[PublicRunEvent]:
@@ -212,14 +229,29 @@ class SqlAlchemyRunStore:
             ).all()
             return [_event_record_to_public_event(event) for event in events]
 
-    def _next_run_id(self, session: Session) -> str:
-        saved_ids = session.scalars(select(AgentRunRecord.id)).all()
-        max_number = 0
-        for saved_id in saved_ids:
-            match = re.fullmatch(r"run_(\d+)", saved_id)
-            if match:
-                max_number = max(max_number, int(match.group(1)))
-        return f"run_{max_number + 1}"
+    def _allocate_run_id(self, session: Session) -> str:
+        sequence = RunIdSequenceRecord()
+        session.add(sequence)
+        session.flush()
+        return f"run_{sequence.id}"
+
+    def _seed_run_id_sequence(self) -> None:
+        with self._session_factory() as session:
+            max_sequence_id = session.scalar(select(func.max(RunIdSequenceRecord.id))) or 0
+            max_run_number = _max_saved_run_number(session)
+            for _ in range(max_sequence_id, max_run_number):
+                session.add(RunIdSequenceRecord())
+            session.commit()
+
+
+def _max_saved_run_number(session: Session) -> int:
+    saved_ids = session.scalars(select(AgentRunRecord.id)).all()
+    max_number = 0
+    for saved_id in saved_ids:
+        match = re.fullmatch(r"run_(\d+)", saved_id)
+        if match:
+            max_number = max(max_number, int(match.group(1)))
+    return max_number
 
 
 def _run_record_to_dict(run: AgentRunRecord) -> dict[str, Any]:
