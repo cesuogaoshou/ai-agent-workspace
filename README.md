@@ -9,7 +9,7 @@ The project is intentionally not a generic chatbot. The UI emphasizes task execu
 - v0.1 Minimal Agent: complete.
 - v0.2A Backend Execution Trace: complete.
 - v0.2B Frontend Trace UI: complete.
-- v0.3 Persistence: complete locally on `feature/v0.1-minimal-agent`.
+- v0.3 Persistence: complete and pushed on `feature/v0.1-minimal-agent`.
 - Web Search remains stubbed.
 - LangGraph, approval flows, MCP, Docker, CI, auth, and SaaS scope remain deferred.
 
