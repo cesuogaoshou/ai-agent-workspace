@@ -88,7 +88,7 @@ def test_agent_api_returns_waiting_run_with_pending_approval() -> None:
     body = response.json()
     assert body["status"] == "waiting_for_approval"
     assert body["finished_at"] is None
-    assert body["pending_approval"]["approval_id"] == "approval_1"
+    assert body["pending_approval"]["approval_id"] == "approval_1_call_1"
     assert "resume_state" not in body
     assert [event["event_type"] for event in body["steps"]] == [
         "status_change",
@@ -103,7 +103,7 @@ def test_agent_api_approve_resumes_waiting_run() -> None:
 
     response = client.post(
         f"/api/agent/runs/{waiting['id']}/approve",
-        json={"approval_id": "approval_1"},
+        json={"approval_id": "approval_1_call_1"},
     )
 
     assert response.status_code == 200
@@ -128,7 +128,7 @@ def test_agent_api_reject_terminates_waiting_run() -> None:
 
     response = client.post(
         f"/api/agent/runs/{waiting['id']}/reject",
-        json={"approval_id": "approval_1", "reason": "Too risky."},
+        json={"approval_id": "approval_1_call_1", "reason": "Too risky."},
     )
 
     assert response.status_code == 200

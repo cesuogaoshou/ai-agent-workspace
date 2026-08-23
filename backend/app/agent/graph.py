@@ -114,6 +114,8 @@ class AgentGraphRunner:
             return {}
         if state["resume_from_tool"]:
             return {"resume_from_tool": False}
+        if state["pending_tool_calls"]:
+            return {}
 
         response = self.provider.complete(state["messages"], self.registry.as_llm_tools())
         if not response.tool_calls:
@@ -164,13 +166,15 @@ class AgentGraphRunner:
         messages = list(state["messages"])
         steps = list(state["steps"])
         step_number = state["current_step"]
+        remaining_tool_calls = list(state["pending_tool_calls"])
 
         for tool_call in state["pending_tool_calls"]:
+            remaining_tool_calls = remaining_tool_calls[1:]
             function = tool_call["function"]
             arguments, argument_error = parse_tool_arguments(function)
             if self._requires_approval(function["name"], arguments):
                 approval = {
-                    "approval_id": f"approval_{step_number}",
+                    "approval_id": _approval_id(step_number, tool_call["id"]),
                     "step_number": step_number,
                     "tool_call_id": tool_call["id"],
                     "tool_name": function["name"],
@@ -183,7 +187,7 @@ class AgentGraphRunner:
                         "messages": messages,
                         "steps": steps,
                         "current_step": step_number,
-                        "pending_tool_calls": state["pending_tool_calls"],
+                        "pending_tool_calls": [tool_call, *remaining_tool_calls],
                         "status": "waiting_for_approval",
                         "final_answer": None,
                         "error": None,
@@ -273,6 +277,10 @@ def parse_tool_arguments(function: dict[str, Any]) -> tuple[dict[str, Any] | Non
     if not isinstance(arguments, dict):
         return None, ToolResult(ok=False, error=ARGUMENT_ERROR)
     return arguments, None
+
+
+def _approval_id(step_number: int, tool_call_id: str) -> str:
+    return f"approval_{step_number}_{tool_call_id}"
 
 
 def _serialize_resume_state(state: AgentGraphState) -> dict[str, Any]:

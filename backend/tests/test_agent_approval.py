@@ -50,6 +50,38 @@ class ToolCallThenFinalProvider:
         return LlmMessage(role="assistant", content="approved done")
 
 
+class TwoSensitiveToolCallsThenFinalProvider:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> LlmMessage:
+        self.calls += 1
+        if self.calls == 1:
+            return LlmMessage(
+                role="assistant",
+                content=None,
+                tool_calls=[
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {
+                            "name": "sensitive_echo",
+                            "arguments": '{"value":"first"}',
+                        },
+                    },
+                    {
+                        "id": "call_2",
+                        "type": "function",
+                        "function": {
+                            "name": "sensitive_echo",
+                            "arguments": '{"value":"second"}',
+                        },
+                    },
+                ],
+            )
+        return LlmMessage(role="assistant", content="approved done")
+
+
 def test_agent_graph_waits_for_approval_before_sensitive_tool_executes() -> None:
     events: list[dict[str, Any]] = []
     tool = SensitiveEchoTool()
@@ -65,7 +97,7 @@ def test_agent_graph_waits_for_approval_before_sensitive_tool_executes() -> None
     assert result.status == "waiting_for_approval"
     assert result.final_answer is None
     assert result.pending_approval == {
-        "approval_id": "approval_1",
+        "approval_id": "approval_1_call_1",
         "step_number": 1,
         "tool_call_id": "call_1",
         "tool_name": "sensitive_echo",
@@ -85,7 +117,7 @@ def test_agent_graph_resumes_after_sensitive_tool_approval() -> None:
     runner = AgentGraphRunner(provider, ToolRegistry([tool]), max_steps=4)
     waiting = runner.run("Use a sensitive tool.")
 
-    result = runner.resume(waiting.resume_state, approval_id="approval_1")
+    result = runner.resume(waiting.resume_state, approval_id="approval_1_call_1")
 
     assert result.status == "success"
     assert result.final_answer == "approved done"
@@ -98,3 +130,25 @@ def test_agent_graph_resumes_after_sensitive_tool_approval() -> None:
         "tool_call_id": "call_1",
         "content": '{"echo": "hello"}',
     }
+
+
+def test_agent_graph_requires_separate_approval_for_each_sensitive_tool_call() -> None:
+    tool = SensitiveEchoTool()
+    runner = AgentGraphRunner(
+        TwoSensitiveToolCallsThenFinalProvider(),
+        ToolRegistry([tool]),
+        max_steps=4,
+    )
+    waiting = runner.run("Use two sensitive tools.")
+
+    second_waiting = runner.resume(waiting.resume_state, approval_id="approval_1_call_1")
+
+    assert second_waiting.status == "waiting_for_approval"
+    assert second_waiting.pending_approval == {
+        "approval_id": "approval_1_call_2",
+        "step_number": 1,
+        "tool_call_id": "call_2",
+        "tool_name": "sensitive_echo",
+        "tool_input": {"value": "second"},
+    }
+    assert tool.executions == [{"value": "first"}]

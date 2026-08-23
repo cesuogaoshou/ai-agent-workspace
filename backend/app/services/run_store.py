@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from itertools import count
 from pathlib import Path
 import re
+from threading import RLock
 from typing import Any, Protocol
 
 from sqlalchemy import JSON, ForeignKey, Integer, String, create_engine, func, select, text
@@ -12,7 +13,7 @@ from backend.app.agent.events import PublicRunEvent
 
 
 class RunStore(Protocol):
-    def create_run(self, task: str) -> dict[str, Any]:
+    def create_run(self, task: str, max_steps: int | None = None) -> dict[str, Any]:
         ...
 
     def append_event(self, run_id: str, event: PublicRunEvent) -> None:
@@ -33,6 +34,9 @@ class RunStore(Protocol):
         pending_approval: dict[str, Any],
         resume_state: dict[str, Any],
     ) -> None:
+        ...
+
+    def consume_pending_approval(self, run_id: str, approval_id: str) -> dict[str, Any]:
         ...
 
     def get_run(self, run_id: str) -> dict[str, Any] | None:
@@ -50,34 +54,38 @@ class InMemoryRunStore:
         self._ids = count(1)
         self._runs: dict[str, dict[str, Any]] = {}
         self._events: dict[str, list[PublicRunEvent]] = {}
+        self._lock = RLock()
 
-    def create_run(self, task: str) -> dict[str, Any]:
-        run_id = f"run_{next(self._ids)}"
-        now = datetime.now(timezone.utc).isoformat()
-        run = {
-            "id": run_id,
-            "task": task,
-            "status": "running",
-            "final_answer": None,
-            "error": None,
-            "created_at": now,
-            "finished_at": None,
-            "step_count": 0,
-            "tool_call_count": 0,
-            "pending_approval": None,
-            "resume_state": None,
-        }
-        self._runs[run_id] = run
-        self._events[run_id] = []
-        return run.copy()
+    def create_run(self, task: str, max_steps: int | None = None) -> dict[str, Any]:
+        with self._lock:
+            run_id = f"run_{next(self._ids)}"
+            now = datetime.now(timezone.utc).isoformat()
+            run = {
+                "id": run_id,
+                "task": task,
+                "status": "running",
+                "final_answer": None,
+                "error": None,
+                "created_at": now,
+                "finished_at": None,
+                "step_count": 0,
+                "tool_call_count": 0,
+                "pending_approval": None,
+                "resume_state": None,
+                "max_steps": max_steps,
+            }
+            self._runs[run_id] = run
+            self._events[run_id] = []
+            return deepcopy(run)
 
     def append_event(self, run_id: str, event: PublicRunEvent) -> None:
-        _validate_event_run_id(run_id, event)
-        self._events[run_id].append(_snapshot_event(event))
-        if event.event_type == "tool_call":
-            self._runs[run_id]["tool_call_count"] += 1
-        if event.event_type in {"tool_call", "final_answer"}:
-            self._runs[run_id]["step_count"] += 1
+        with self._lock:
+            _validate_event_run_id(run_id, event)
+            self._events[run_id].append(_snapshot_event(event))
+            if event.event_type == "tool_call":
+                self._runs[run_id]["tool_call_count"] += 1
+            if event.event_type in {"tool_call", "final_answer"}:
+                self._runs[run_id]["step_count"] += 1
 
     def finish_run(
         self,
@@ -86,12 +94,13 @@ class InMemoryRunStore:
         final_answer: str | None,
         error: str | None,
     ) -> None:
-        self._runs[run_id]["status"] = status
-        self._runs[run_id]["final_answer"] = final_answer
-        self._runs[run_id]["error"] = error
-        self._runs[run_id]["finished_at"] = datetime.now(timezone.utc).isoformat()
-        self._runs[run_id]["pending_approval"] = None
-        self._runs[run_id]["resume_state"] = None
+        with self._lock:
+            self._runs[run_id]["status"] = status
+            self._runs[run_id]["final_answer"] = final_answer
+            self._runs[run_id]["error"] = error
+            self._runs[run_id]["finished_at"] = datetime.now(timezone.utc).isoformat()
+            self._runs[run_id]["pending_approval"] = None
+            self._runs[run_id]["resume_state"] = None
 
     def set_waiting_for_approval(
         self,
@@ -99,19 +108,36 @@ class InMemoryRunStore:
         pending_approval: dict[str, Any],
         resume_state: dict[str, Any],
     ) -> None:
-        self._runs[run_id]["status"] = "waiting_for_approval"
-        self._runs[run_id]["pending_approval"] = deepcopy(pending_approval)
-        self._runs[run_id]["resume_state"] = deepcopy(resume_state)
+        with self._lock:
+            self._runs[run_id]["status"] = "waiting_for_approval"
+            self._runs[run_id]["finished_at"] = None
+            self._runs[run_id]["pending_approval"] = deepcopy(pending_approval)
+            self._runs[run_id]["resume_state"] = deepcopy(resume_state)
+
+    def consume_pending_approval(self, run_id: str, approval_id: str) -> dict[str, Any]:
+        with self._lock:
+            run = self._runs.get(run_id)
+            if run is None:
+                raise KeyError(f"Unknown run id: {run_id}")
+            _validate_pending_approval(run, approval_id)
+            consumed = deepcopy(run)
+            run["status"] = "running"
+            run["pending_approval"] = None
+            run["resume_state"] = None
+            return consumed
 
     def get_run(self, run_id: str) -> dict[str, Any] | None:
-        run = self._runs.get(run_id)
-        return run.copy() if run is not None else None
+        with self._lock:
+            run = self._runs.get(run_id)
+            return deepcopy(run) if run is not None else None
 
     def list_runs(self) -> list[dict[str, Any]]:
-        return [run.copy() for run in self._runs.values()]
+        with self._lock:
+            return [deepcopy(run) for run in self._runs.values()]
 
     def list_events(self, run_id: str) -> list[PublicRunEvent]:
-        return [_snapshot_event(event) for event in self._events.get(run_id, [])]
+        with self._lock:
+            return [_snapshot_event(event) for event in self._events.get(run_id, [])]
 
 
 def _snapshot_event(event: PublicRunEvent) -> PublicRunEvent:
@@ -127,6 +153,16 @@ def _snapshot_event(event: PublicRunEvent) -> PublicRunEvent:
 def _validate_event_run_id(run_id: str, event: PublicRunEvent) -> None:
     if event.run_id != run_id:
         raise ValueError("Event run_id must match target run_id.")
+
+
+def _validate_pending_approval(run: dict[str, Any], approval_id: str) -> None:
+    if run["status"] != "waiting_for_approval":
+        raise ValueError("Run is not waiting for approval.")
+    pending = run.get("pending_approval")
+    if not isinstance(pending, dict) or pending.get("approval_id") != approval_id:
+        raise ValueError("Approval id does not match pending approval.")
+    if run.get("resume_state") is None:
+        raise ValueError("Run is missing resume state.")
 
 
 class Base(DeclarativeBase):
@@ -147,6 +183,7 @@ class AgentRunRecord(Base):
     tool_call_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     pending_approval: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     resume_state: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    max_steps: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class RunIdSequenceRecord(Base):
@@ -176,7 +213,7 @@ class SqlAlchemyRunStore:
         self._ensure_approval_columns()
         self._seed_run_id_sequence()
 
-    def create_run(self, task: str) -> dict[str, Any]:
+    def create_run(self, task: str, max_steps: int | None = None) -> dict[str, Any]:
         with self._session_factory() as session:
             run_id = self._allocate_run_id(session)
             run = AgentRunRecord(
@@ -191,6 +228,7 @@ class SqlAlchemyRunStore:
                 tool_call_count=0,
                 pending_approval=None,
                 resume_state=None,
+                max_steps=max_steps,
             )
             session.add(run)
             session.commit()
@@ -248,9 +286,25 @@ class SqlAlchemyRunStore:
             if run is None:
                 raise KeyError(f"Unknown run id: {run_id}")
             run.status = "waiting_for_approval"
+            run.finished_at = None
             run.pending_approval = deepcopy(pending_approval)
             run.resume_state = deepcopy(resume_state)
             session.commit()
+
+    def consume_pending_approval(self, run_id: str, approval_id: str) -> dict[str, Any]:
+        with self._session_factory() as session:
+            if self._engine.dialect.name == "sqlite":
+                session.execute(text("BEGIN IMMEDIATE"))
+            run = session.get(AgentRunRecord, run_id)
+            if run is None:
+                raise KeyError(f"Unknown run id: {run_id}")
+            run_dict = _run_record_to_dict(run)
+            _validate_pending_approval(run_dict, approval_id)
+            run.status = "running"
+            run.pending_approval = None
+            run.resume_state = None
+            session.commit()
+            return run_dict
 
     def get_run(self, run_id: str) -> dict[str, Any] | None:
         with self._session_factory() as session:
@@ -299,6 +353,8 @@ class SqlAlchemyRunStore:
                 connection.execute(text("ALTER TABLE agent_runs ADD COLUMN pending_approval JSON"))
             if "resume_state" not in columns:
                 connection.execute(text("ALTER TABLE agent_runs ADD COLUMN resume_state JSON"))
+            if "max_steps" not in columns:
+                connection.execute(text("ALTER TABLE agent_runs ADD COLUMN max_steps INTEGER"))
 
 
 def _max_saved_run_number(session: Session) -> int:
@@ -324,6 +380,7 @@ def _run_record_to_dict(run: AgentRunRecord) -> dict[str, Any]:
         "tool_call_count": run.tool_call_count,
         "pending_approval": deepcopy(run.pending_approval),
         "resume_state": deepcopy(run.resume_state),
+        "max_steps": run.max_steps,
     }
 
 

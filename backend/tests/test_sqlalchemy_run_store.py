@@ -1,5 +1,6 @@
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+import sqlite3
 
 import pytest
 
@@ -102,6 +103,47 @@ def test_sqlalchemy_run_store_persists_pending_approval_after_restart(tmp_path: 
     assert saved["finished_at"] is None
     assert saved["pending_approval"] == pending_approval
     assert saved["resume_state"] == resume_state
+
+
+def test_sqlalchemy_run_store_adds_v0_5_columns_to_existing_sqlite_schema(tmp_path: Path) -> None:
+    db_path = tmp_path / "runs.sqlite3"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE agent_runs (
+                id VARCHAR NOT NULL PRIMARY KEY,
+                task VARCHAR NOT NULL,
+                status VARCHAR NOT NULL,
+                final_answer VARCHAR,
+                error VARCHAR,
+                created_at VARCHAR NOT NULL,
+                finished_at VARCHAR,
+                step_count INTEGER NOT NULL,
+                tool_call_count INTEGER NOT NULL
+            )
+            """
+        )
+        connection.execute("CREATE TABLE run_id_sequence (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT)")
+        connection.execute(
+            """
+            CREATE TABLE run_events (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                run_id VARCHAR NOT NULL,
+                event_type VARCHAR NOT NULL,
+                sequence INTEGER NOT NULL,
+                payload JSON NOT NULL,
+                created_at VARCHAR NOT NULL,
+                FOREIGN KEY(run_id) REFERENCES agent_runs (id)
+            )
+            """
+        )
+
+    store = SqlAlchemyRunStore(f"sqlite:///{db_path}")
+    run = store.create_run(task="new run", max_steps=5)
+
+    assert run["pending_approval"] is None
+    assert run["resume_state"] is None
+    assert run["max_steps"] == 5
 
 
 def test_sqlalchemy_run_store_allocates_unique_run_ids_concurrently(tmp_path: Path) -> None:
