@@ -15,8 +15,8 @@ Read deeper documentation only when it is relevant to the current task.
 
 - Project name: AI Agent Workspace.
 - Goal: build a visual, traceable, extensible single-Agent workspace.
-- Current implementation phase: v0.5 Human-in-the-loop implemented locally; review and final verification pending.
-- Recommended next implementation target: finish v0.5 review/verification/push, then pause before v0.6 unless explicitly requested.
+- Current implementation phase: v0.5 Human-in-the-loop implemented locally; review findings fixed and final verification passed; push pending.
+- Recommended next implementation target: push v0.5, then pause before v0.6 unless explicitly requested.
 - Preferred stack direction: Vue 3 + TypeScript frontend, FastAPI + Python backend, SQLite + SQLAlchemy persistence.
 - `docs/` and `agent/` are local documentation directories by current user request and are ignored by Git.
 
@@ -51,7 +51,7 @@ Read deeper documentation only when it is relevant to the current task.
 - Current backend verification commands:
   - `.venv\Scripts\python.exe -m pytest backend/tests -v`
   - `.venv\Scripts\python.exe -m compileall backend`
-- Latest targeted v0.5 results: approval runtime `2 passed`; approval store/service/API `15 passed`; API/service/persistence regression `42 passed`; frontend tests `13 passed`; frontend build exit 0. Full v0.5 verification is pending.
+- Latest v0.5 full verification: backend pytest `90 passed, 1 skipped`; compileall exit 0; frontend tests `13 passed`; frontend build exit 0.
 
 ## Local Environment Notes
 
