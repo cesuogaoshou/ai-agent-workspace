@@ -74,6 +74,36 @@ def test_sqlalchemy_run_store_continues_run_ids_after_restart(tmp_path: Path) ->
     assert second["id"] == "run_2"
 
 
+def test_sqlalchemy_run_store_persists_pending_approval_after_restart(tmp_path: Path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'runs.sqlite3'}"
+    first_store = SqlAlchemyRunStore(database_url)
+    run = first_store.create_run(task="needs approval")
+    pending_approval = {
+        "approval_id": "approval_1",
+        "tool_name": "sensitive_echo",
+        "tool_input": {"value": "hello"},
+    }
+    resume_state = {
+        "task": "needs approval",
+        "messages": [{"role": "user", "content": "needs approval"}],
+        "steps": [],
+        "current_step": 1,
+        "pending_tool_calls": [],
+        "status": "waiting_for_approval",
+    }
+
+    first_store.set_waiting_for_approval(run["id"], pending_approval, resume_state)
+
+    second_store = SqlAlchemyRunStore(database_url)
+    saved = second_store.get_run(run["id"])
+
+    assert saved is not None
+    assert saved["status"] == "waiting_for_approval"
+    assert saved["finished_at"] is None
+    assert saved["pending_approval"] == pending_approval
+    assert saved["resume_state"] == resume_state
+
+
 def test_sqlalchemy_run_store_allocates_unique_run_ids_concurrently(tmp_path: Path) -> None:
     database_url = f"sqlite:///{tmp_path / 'runs.sqlite3'}"
     store = SqlAlchemyRunStore(database_url)

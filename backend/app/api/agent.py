@@ -4,7 +4,13 @@ from starlette.responses import StreamingResponse
 from backend.app.api.tools import build_registry
 from backend.app.config import get_settings
 from backend.app.llm.deepseek import DeepSeekProvider
-from backend.app.schemas.agent import AgentRunResponse, CreateRunRequest, RunListResponse
+from backend.app.schemas.agent import (
+    AgentRunResponse,
+    ApprovalDecisionRequest,
+    CreateRunRequest,
+    RejectApprovalRequest,
+    RunListResponse,
+)
 from backend.app.services.run_service import PUBLIC_RUN_FAILURE_ERROR, RunService
 from backend.app.services.run_store import InMemoryRunStore, SqlAlchemyRunStore
 
@@ -18,18 +24,7 @@ def create_run(request: CreateRunRequest) -> AgentRunResponse:
     if not settings.deepseek_api_key:
         raise HTTPException(status_code=500, detail="DEEPSEEK_API_KEY is not configured.")
 
-    provider = DeepSeekProvider(
-        api_key=settings.deepseek_api_key,
-        base_url=settings.deepseek_base_url,
-        model=settings.deepseek_model,
-    )
-    service = RunService(
-        store=_get_run_store(),
-        provider=provider,
-        registry=build_registry(),
-        max_steps=request.max_steps or settings.agent_max_steps,
-        public_failure_error=PUBLIC_RUN_FAILURE_ERROR,
-    )
+    service = _build_run_service(max_steps=request.max_steps or settings.agent_max_steps)
     try:
         run = service.create_run(request.task)
     except Exception as exc:
@@ -52,6 +47,34 @@ def get_run(run_id: str) -> AgentRunResponse:
     return AgentRunResponse.model_validate(run)
 
 
+@router.post("/runs/{run_id}/approve", response_model=AgentRunResponse)
+def approve_run(run_id: str, request: ApprovalDecisionRequest) -> AgentRunResponse:
+    service = _build_run_service()
+    try:
+        run = service.approve_run(run_id, approval_id=request.approval_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Run not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return AgentRunResponse.model_validate(run)
+
+
+@router.post("/runs/{run_id}/reject", response_model=AgentRunResponse)
+def reject_run(run_id: str, request: RejectApprovalRequest) -> AgentRunResponse:
+    service = _build_run_service()
+    try:
+        run = service.reject_run(
+            run_id,
+            approval_id=request.approval_id,
+            reason=request.reason,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Run not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return AgentRunResponse.model_validate(run)
+
+
 @router.get("/runs/{run_id}/events")
 def stream_run_events(run_id: str) -> StreamingResponse:
     store = _get_run_store()
@@ -68,3 +91,21 @@ def _get_run_store() -> InMemoryRunStore | SqlAlchemyRunStore:
     if RUN_STORE is None:
         RUN_STORE = SqlAlchemyRunStore(get_settings().database_url)
     return RUN_STORE
+
+
+def _build_run_service(max_steps: int | None = None) -> RunService:
+    settings = get_settings()
+    if not settings.deepseek_api_key:
+        raise HTTPException(status_code=500, detail="DEEPSEEK_API_KEY is not configured.")
+    provider = DeepSeekProvider(
+        api_key=settings.deepseek_api_key,
+        base_url=settings.deepseek_base_url,
+        model=settings.deepseek_model,
+    )
+    return RunService(
+        store=_get_run_store(),
+        provider=provider,
+        registry=build_registry(),
+        max_steps=max_steps or settings.agent_max_steps,
+        public_failure_error=PUBLIC_RUN_FAILURE_ERROR,
+    )

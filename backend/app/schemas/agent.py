@@ -16,6 +16,14 @@ class CreateRunRequest(BaseModel):
         return stripped
 
 
+class ApprovalDecisionRequest(BaseModel):
+    approval_id: str = Field(min_length=1)
+
+
+class RejectApprovalRequest(ApprovalDecisionRequest):
+    reason: str | None = None
+
+
 class TraceStepResponse(BaseModel):
     step_number: int
     step_type: str
@@ -59,3 +67,4 @@ class AgentRunResponse(BaseModel):
     error: str | None = None
     created_at: str | None = None
     finished_at: str | None = None
+    pending_approval: dict[str, Any] | None = None

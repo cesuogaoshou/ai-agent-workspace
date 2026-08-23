@@ -32,6 +32,14 @@ class AgentLoop:
             on_event=self.on_event,
         ).run(task)
 
+    def resume(self, resume_state: dict[str, Any] | None, approval_id: str) -> AgentRunResult:
+        return AgentGraphRunner(
+            self.provider,
+            self.registry,
+            self.max_steps,
+            on_event=self.on_event,
+        ).resume(resume_state, approval_id=approval_id)
+
     def _emit(self, event_type: str, payload: dict[str, Any]) -> None:
         if self.on_event is not None:
             self.on_event({"event_type": event_type, "payload": payload})

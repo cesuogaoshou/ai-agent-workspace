@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 from typing import Any, Protocol
 
-from sqlalchemy import JSON, ForeignKey, Integer, String, create_engine, func, select
+from sqlalchemy import JSON, ForeignKey, Integer, String, create_engine, func, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from backend.app.agent.events import PublicRunEvent
@@ -24,6 +24,14 @@ class RunStore(Protocol):
         status: str,
         final_answer: str | None,
         error: str | None,
+    ) -> None:
+        ...
+
+    def set_waiting_for_approval(
+        self,
+        run_id: str,
+        pending_approval: dict[str, Any],
+        resume_state: dict[str, Any],
     ) -> None:
         ...
 
@@ -56,6 +64,8 @@ class InMemoryRunStore:
             "finished_at": None,
             "step_count": 0,
             "tool_call_count": 0,
+            "pending_approval": None,
+            "resume_state": None,
         }
         self._runs[run_id] = run
         self._events[run_id] = []
@@ -80,6 +90,18 @@ class InMemoryRunStore:
         self._runs[run_id]["final_answer"] = final_answer
         self._runs[run_id]["error"] = error
         self._runs[run_id]["finished_at"] = datetime.now(timezone.utc).isoformat()
+        self._runs[run_id]["pending_approval"] = None
+        self._runs[run_id]["resume_state"] = None
+
+    def set_waiting_for_approval(
+        self,
+        run_id: str,
+        pending_approval: dict[str, Any],
+        resume_state: dict[str, Any],
+    ) -> None:
+        self._runs[run_id]["status"] = "waiting_for_approval"
+        self._runs[run_id]["pending_approval"] = deepcopy(pending_approval)
+        self._runs[run_id]["resume_state"] = deepcopy(resume_state)
 
     def get_run(self, run_id: str) -> dict[str, Any] | None:
         run = self._runs.get(run_id)
@@ -123,6 +145,8 @@ class AgentRunRecord(Base):
     finished_at: Mapped[str | None] = mapped_column(String, nullable=True)
     step_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     tool_call_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    pending_approval: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    resume_state: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class RunIdSequenceRecord(Base):
@@ -149,6 +173,7 @@ class SqlAlchemyRunStore:
         self._engine = create_engine(database_url, connect_args=connect_args)
         self._session_factory = sessionmaker(self._engine, expire_on_commit=False)
         Base.metadata.create_all(self._engine)
+        self._ensure_approval_columns()
         self._seed_run_id_sequence()
 
     def create_run(self, task: str) -> dict[str, Any]:
@@ -164,6 +189,8 @@ class SqlAlchemyRunStore:
                 finished_at=None,
                 step_count=0,
                 tool_call_count=0,
+                pending_approval=None,
+                resume_state=None,
             )
             session.add(run)
             session.commit()
@@ -206,6 +233,23 @@ class SqlAlchemyRunStore:
             run.final_answer = final_answer
             run.error = error
             run.finished_at = datetime.now(timezone.utc).isoformat()
+            run.pending_approval = None
+            run.resume_state = None
+            session.commit()
+
+    def set_waiting_for_approval(
+        self,
+        run_id: str,
+        pending_approval: dict[str, Any],
+        resume_state: dict[str, Any],
+    ) -> None:
+        with self._session_factory() as session:
+            run = session.get(AgentRunRecord, run_id)
+            if run is None:
+                raise KeyError(f"Unknown run id: {run_id}")
+            run.status = "waiting_for_approval"
+            run.pending_approval = deepcopy(pending_approval)
+            run.resume_state = deepcopy(resume_state)
             session.commit()
 
     def get_run(self, run_id: str) -> dict[str, Any] | None:
@@ -243,6 +287,19 @@ class SqlAlchemyRunStore:
                 session.add(RunIdSequenceRecord())
             session.commit()
 
+    def _ensure_approval_columns(self) -> None:
+        if self._engine.dialect.name != "sqlite":
+            return
+        with self._engine.begin() as connection:
+            columns = {
+                row[1]
+                for row in connection.execute(text("PRAGMA table_info(agent_runs)")).fetchall()
+            }
+            if "pending_approval" not in columns:
+                connection.execute(text("ALTER TABLE agent_runs ADD COLUMN pending_approval JSON"))
+            if "resume_state" not in columns:
+                connection.execute(text("ALTER TABLE agent_runs ADD COLUMN resume_state JSON"))
+
 
 def _max_saved_run_number(session: Session) -> int:
     saved_ids = session.scalars(select(AgentRunRecord.id)).all()
@@ -265,6 +322,8 @@ def _run_record_to_dict(run: AgentRunRecord) -> dict[str, Any]:
         "finished_at": run.finished_at,
         "step_count": run.step_count,
         "tool_call_count": run.tool_call_count,
+        "pending_approval": deepcopy(run.pending_approval),
+        "resume_state": deepcopy(run.resume_state),
     }
 
 
