@@ -39,7 +39,7 @@ Read deeper documentation only when it is relevant to the current task.
 - Do not overwrite or revert user changes unless explicitly requested.
 - Keep `agent/` as AI working documentation and ignored by Git unless the user explicitly wants it versioned.
 - Keep `docs/` ignored by Git per current user request. Local docs still matter for project coordination.
-- Current pushed commit for v0.5: `ce9ee57 docs: mark v0.5 verified`.
+- v0.5 has been pushed on `feature/v0.1-minimal-agent`; use `git log -1` for the latest exact commit.
 
 ## Verification
 
