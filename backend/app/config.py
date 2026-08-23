@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     agent_max_steps: int = Field(default=8, ge=1, le=20, alias="AGENT_MAX_STEPS")
     file_reader_root: str = Field(default="workspace_files", alias="FILE_READER_ROOT")
     web_search_mode: str = Field(default="stub", alias="WEB_SEARCH_MODE")
+    database_url: str = Field(default="sqlite:///workspace_files/agent_runs.sqlite3", alias="DATABASE_URL")
 
 
 @lru_cache

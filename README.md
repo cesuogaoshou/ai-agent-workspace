@@ -8,9 +8,10 @@ The project is intentionally not a generic chatbot. The UI emphasizes task execu
 
 - v0.1 Minimal Agent: complete.
 - v0.2A Backend Execution Trace: complete.
-- v0.2B Frontend Trace UI: complete locally on `feature/v0.1-minimal-agent`.
+- v0.2B Frontend Trace UI: complete.
+- v0.3 Persistence: complete locally on `feature/v0.1-minimal-agent`.
 - Web Search remains stubbed.
-- SQLite persistence, LangGraph, approval flows, MCP, Docker, CI, auth, and SaaS scope remain deferred.
+- LangGraph, approval flows, MCP, Docker, CI, auth, and SaaS scope remain deferred.
 
 ## Current Stack
 
@@ -28,7 +29,7 @@ Backend:
 - Pydantic
 - Uvicorn
 - DeepSeek OpenAI-compatible provider
-- In-memory run store for v0.2
+- SQLite + SQLAlchemy durable run store
 
 ## Repository Layout
 
@@ -68,6 +69,8 @@ Start the API server from the repo root:
 ```powershell
 .venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 ```
+
+Run history is stored in SQLite by default at `workspace_files/agent_runs.sqlite3`. Override it with `DATABASE_URL` when needed, for example `sqlite:///workspace_files/custom_runs.sqlite3`.
 
 Useful backend endpoints:
 
@@ -132,7 +135,7 @@ v0.2 Agent Loop + Execution Trace
   -> backend run records, public events, SSE, frontend trace UI
 
 v0.3 Persistence
-  -> SQLite / SQLAlchemy / durable run history
+  -> SQLite / SQLAlchemy / durable run history across backend restarts
 
 v0.4 LangGraph
   -> explicit state graph after raw loop mechanics are understood

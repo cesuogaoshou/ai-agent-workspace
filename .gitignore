@@ -15,3 +15,6 @@ docs/
 # Python generated files.
 __pycache__/
 *.py[cod]
+
+# Local SQLite runtime data.
+*.sqlite3

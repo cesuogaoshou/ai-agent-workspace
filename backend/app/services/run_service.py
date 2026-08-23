@@ -3,7 +3,7 @@ from typing import Any
 from backend.app.agent.events import PublicRunEvent
 from backend.app.agent.loop import AgentLoop
 from backend.app.llm.provider import LlmProvider
-from backend.app.services.run_store import InMemoryRunStore
+from backend.app.services.run_store import RunStore
 from backend.app.tools.registry import ToolRegistry
 
 PUBLIC_RUN_FAILURE_ERROR = "Agent run failed."
@@ -12,7 +12,7 @@ PUBLIC_RUN_FAILURE_ERROR = "Agent run failed."
 class RunService:
     def __init__(
         self,
-        store: InMemoryRunStore,
+        store: RunStore,
         provider: LlmProvider,
         registry: ToolRegistry,
         max_steps: int,
