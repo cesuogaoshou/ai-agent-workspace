@@ -50,6 +50,27 @@ export function getRun(runId: string): Promise<AgentRun> {
   return requestJson<AgentRun>(`/agent/runs/${encodeURIComponent(runId)}`);
 }
 
+export function approveRun(runId: string, approvalId: string): Promise<AgentRun> {
+  return requestJson<AgentRun>(`/agent/runs/${encodeURIComponent(runId)}/approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ approval_id: approvalId })
+  });
+}
+
+export function rejectRun(runId: string, approvalId: string, reason?: string): Promise<AgentRun> {
+  const body: { approval_id: string; reason?: string } = { approval_id: approvalId };
+  if (reason !== undefined) {
+    body.reason = reason;
+  }
+
+  return requestJson<AgentRun>(`/agent/runs/${encodeURIComponent(runId)}/reject`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+}
+
 export async function getRunEvents(runId: string): Promise<RunEvent[]> {
   const response = await fetch(`${API_BASE}/agent/runs/${encodeURIComponent(runId)}/events`);
   if (!response.ok) {

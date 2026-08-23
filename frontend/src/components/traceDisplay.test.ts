@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import ApprovalPanel, { pendingApprovalFromEvents } from "./ApprovalPanel.vue";
 import EventTimeline, { eventPayloadJson } from "./EventTimeline.vue";
 import RunDetail, { displayError, finalAnswerText, formatDateTime } from "./RunDetail.vue";
 import ToolCallCard, { getPayloadString, getPayloadValue } from "./ToolCallCard.vue";
@@ -8,6 +9,7 @@ describe("trace display components", () => {
     expect(RunDetail).toBeTruthy();
     expect(EventTimeline).toBeTruthy();
     expect(ToolCallCard).toBeTruthy();
+    expect(ApprovalPanel).toBeTruthy();
   });
 
   it("formats missing and invalid timestamps safely", () => {
@@ -44,5 +46,31 @@ describe("trace display components", () => {
     };
 
     expect(eventPayloadJson(payload)).toBe(JSON.stringify(payload, null, 2));
+  });
+
+  it("extracts the latest approval request from public events", () => {
+    const approval = pendingApprovalFromEvents([
+      {
+        run_id: "run_1",
+        event_type: "approval_required",
+        sequence: 2,
+        payload: {
+          approval_id: "approval_1",
+          step_number: 1,
+          tool_call_id: "call_1",
+          tool_name: "sensitive_echo",
+          tool_input: { value: "hello" }
+        },
+        created_at: "2026-08-24T00:00:00Z"
+      }
+    ]);
+
+    expect(approval).toEqual({
+      approval_id: "approval_1",
+      step_number: 1,
+      tool_call_id: "call_1",
+      tool_name: "sensitive_echo",
+      tool_input: { value: "hello" }
+    });
   });
 });

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createRun, getRunEvents, listRuns } from "./agent";
+import { approveRun, createRun, getRunEvents, listRuns, rejectRun } from "./agent";
 
 const runResponse = {
   id: "run_1",
@@ -59,5 +59,33 @@ describe("agent api client", () => {
     mockFetch(new Response(`event: status_change\ndata: ${JSON.stringify(event)}\n\n`));
 
     await expect(getRunEvents("run_1")).resolves.toEqual([event]);
+  });
+
+  it("approves a pending run", async () => {
+    const fetchMock = mockFetch(Response.json({ ...runResponse, status: "success" }));
+
+    await expect(approveRun("run_1", "approval_1")).resolves.toEqual({ ...runResponse, status: "success" });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/agent/runs/run_1/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approval_id: "approval_1" })
+    });
+  });
+
+  it("rejects a pending run with a reason", async () => {
+    const fetchMock = mockFetch(Response.json({ ...runResponse, status: "rejected", error: "Too risky." }));
+
+    await expect(rejectRun("run_1", "approval_1", "Too risky.")).resolves.toEqual({
+      ...runResponse,
+      status: "rejected",
+      error: "Too risky."
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/agent/runs/run_1/reject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approval_id: "approval_1", reason: "Too risky." })
+    });
   });
 });

@@ -58,6 +58,27 @@ function payloadString(payload: Record<string, unknown>, key: string, fallback: 
 
           <ToolCallCard v-else-if="event.event_type === 'tool_call'" :event="event" />
 
+          <div v-else-if="event.event_type === 'approval_required'" class="event-content">
+            <p>
+              Approval required for
+              <span class="inline-strong">{{ payloadString(event.payload, "tool_name", "unknown tool") }}</span>
+            </p>
+            <details>
+              <summary>Approval payload</summary>
+              <pre>{{ eventPayloadJson(event.payload) }}</pre>
+            </details>
+          </div>
+
+          <div v-else-if="event.event_type === 'approval_decision'" class="event-content">
+            <p>
+              Approval
+              <span class="inline-strong">{{ payloadString(event.payload, "decision", "recorded") }}</span>
+            </p>
+            <p v-if="payloadString(event.payload, 'reason', '')" class="event-error">
+              {{ payloadString(event.payload, "reason", "") }}
+            </p>
+          </div>
+
           <div v-else-if="event.event_type === 'final_answer'" class="event-content">
             <p>{{ payloadString(event.payload, "final_answer", "Final answer recorded.") }}</p>
           </div>
