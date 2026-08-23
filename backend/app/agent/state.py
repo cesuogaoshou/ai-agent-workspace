@@ -20,3 +20,5 @@ class AgentRunResult:
     final_answer: str | None
     steps: list[TraceStep] = field(default_factory=list)
     error: str | None = None
+    pending_approval: dict[str, Any] | None = None
+    resume_state: dict[str, Any] | None = None

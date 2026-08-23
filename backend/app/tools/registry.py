@@ -42,3 +42,7 @@ class ToolRegistry:
         if tool is None:
             return ToolResult(ok=False, error=f"Tool is not registered: {name}")
         return tool.execute(arguments)
+
+    def requires_approval(self, name: str) -> bool:
+        tool = self._tools.get(name)
+        return bool(tool.requires_approval) if tool is not None else False

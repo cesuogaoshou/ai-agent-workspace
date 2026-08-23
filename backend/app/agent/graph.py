@@ -25,6 +25,9 @@ class AgentGraphState(TypedDict):
     status: str
     final_answer: str | None
     error: str | None
+    pending_approval: dict[str, Any] | None
+    approved_approval_id: str | None
+    resume_from_tool: bool
 
 
 def describe_agent_graph() -> dict[str, Any]:
@@ -61,7 +64,7 @@ class AgentGraphRunner:
         self._graph = build_agent_graph(self)
 
     def run(self, task: str) -> AgentRunResult:
-        final_state = self._graph.invoke(
+        return self._invoke(
             {
                 "task": task,
                 "messages": [{"role": "user", "content": task}],
@@ -72,20 +75,45 @@ class AgentGraphRunner:
                 "status": "running",
                 "final_answer": None,
                 "error": None,
-            },
+                "pending_approval": None,
+                "approved_approval_id": None,
+                "resume_from_tool": False,
+            }
+        )
+
+    def resume(self, resume_state: dict[str, Any] | None, approval_id: str) -> AgentRunResult:
+        if resume_state is None:
+            raise ValueError("Resume state is required.")
+        state = _deserialize_resume_state(resume_state)
+        state["status"] = "running"
+        state["approved_approval_id"] = approval_id
+        state["resume_from_tool"] = True
+        return self._invoke(state)
+
+    def _invoke(self, initial_state: AgentGraphState) -> AgentRunResult:
+        final_state = self._graph.invoke(
+            initial_state,
             config={"recursion_limit": (self.max_steps * 2) + 5},
         )
         return AgentRunResult(
-            task=task,
+            task=final_state["task"],
             status=final_state["status"],
             final_answer=final_state["final_answer"],
             steps=final_state["steps"],
             error=final_state["error"],
+            pending_approval=final_state["pending_approval"],
+            resume_state=(
+                _serialize_resume_state(final_state)
+                if final_state["status"] == "waiting_for_approval"
+                else None
+            ),
         )
 
     def agent_node(self, state: AgentGraphState) -> dict[str, Any]:
         if state["status"] != "running":
             return {}
+        if state["resume_from_tool"]:
+            return {"resume_from_tool": False}
 
         response = self.provider.complete(state["messages"], self.registry.as_llm_tools())
         if not response.tool_calls:
@@ -139,7 +167,34 @@ class AgentGraphRunner:
 
         for tool_call in state["pending_tool_calls"]:
             function = tool_call["function"]
-            arguments, result = execute_tool_call(self.registry, function)
+            arguments, argument_error = parse_tool_arguments(function)
+            if self._requires_approval(function["name"], arguments):
+                approval = {
+                    "approval_id": f"approval_{step_number}",
+                    "step_number": step_number,
+                    "tool_call_id": tool_call["id"],
+                    "tool_name": function["name"],
+                    "tool_input": arguments,
+                }
+                if state["approved_approval_id"] != approval["approval_id"]:
+                    self._emit("approval_required", approval)
+                    self._emit("status_change", {"status": "waiting_for_approval"})
+                    return {
+                        "messages": messages,
+                        "steps": steps,
+                        "current_step": step_number,
+                        "pending_tool_calls": state["pending_tool_calls"],
+                        "status": "waiting_for_approval",
+                        "final_answer": None,
+                        "error": None,
+                        "pending_approval": approval,
+                    }
+            result = (
+                argument_error
+                if argument_error is not None
+                else self.registry.execute(function["name"], arguments or {})
+            )
+
             step = TraceStep(
                 step_number=step_number,
                 step_type="tool_call",
@@ -180,6 +235,7 @@ class AgentGraphRunner:
                 "status": "failed",
                 "final_answer": None,
                 "error": "Max steps reached.",
+                "pending_approval": None,
             }
 
         return {
@@ -187,21 +243,67 @@ class AgentGraphRunner:
             "steps": steps,
             "current_step": next_step,
             "pending_tool_calls": [],
+            "pending_approval": None,
+            "approved_approval_id": None,
         }
 
     def _emit(self, event_type: str, payload: dict[str, Any]) -> None:
         if self.on_event is not None:
             self.on_event({"event_type": event_type, "payload": payload})
 
+    def _requires_approval(self, tool_name: str, arguments: dict[str, Any] | None) -> bool:
+        return arguments is not None and self.registry.requires_approval(tool_name)
+
 
 def execute_tool_call(
     registry: ToolRegistry,
     function: dict[str, Any],
 ) -> tuple[dict[str, Any] | None, ToolResult]:
+    arguments, argument_error = parse_tool_arguments(function)
+    if argument_error is not None:
+        return arguments, argument_error
+    return arguments, registry.execute(function["name"], arguments or {})
+
+
+def parse_tool_arguments(function: dict[str, Any]) -> tuple[dict[str, Any] | None, ToolResult | None]:
     try:
         arguments = json.loads(function.get("arguments") or "{}")
     except json.JSONDecodeError:
         return None, ToolResult(ok=False, error=ARGUMENT_ERROR)
     if not isinstance(arguments, dict):
         return None, ToolResult(ok=False, error=ARGUMENT_ERROR)
-    return arguments, registry.execute(function["name"], arguments)
+    return arguments, None
+
+
+def _serialize_resume_state(state: AgentGraphState) -> dict[str, Any]:
+    return {
+        "task": state["task"],
+        "messages": state["messages"],
+        "steps": [step.__dict__ for step in state["steps"]],
+        "current_step": state["current_step"],
+        "latest_response": None,
+        "pending_tool_calls": state["pending_tool_calls"],
+        "status": state["status"],
+        "final_answer": state["final_answer"],
+        "error": state["error"],
+        "pending_approval": state["pending_approval"],
+        "approved_approval_id": None,
+        "resume_from_tool": False,
+    }
+
+
+def _deserialize_resume_state(state: dict[str, Any]) -> AgentGraphState:
+    return {
+        "task": str(state["task"]),
+        "messages": list(state["messages"]),
+        "steps": [TraceStep(**step) for step in state.get("steps", [])],
+        "current_step": int(state["current_step"]),
+        "latest_response": None,
+        "pending_tool_calls": list(state.get("pending_tool_calls", [])),
+        "status": str(state["status"]),
+        "final_answer": state.get("final_answer"),
+        "error": state.get("error"),
+        "pending_approval": state.get("pending_approval"),
+        "approved_approval_id": state.get("approved_approval_id"),
+        "resume_from_tool": bool(state.get("resume_from_tool", False)),
+    }
