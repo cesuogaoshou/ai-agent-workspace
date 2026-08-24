@@ -15,8 +15,8 @@ Read deeper documentation only when it is relevant to the current task.
 
 - Project name: AI Agent Workspace.
 - Goal: build a visual, traceable, extensible single-Agent workspace.
-- Current implementation phase: v0.6 Memory / State verified locally; commit and push pending.
-- Recommended next implementation target: commit and push v0.6, then pause before v0.7 unless explicitly requested.
+- Current implementation phase: v0.6 Memory / State complete and pushed.
+- Recommended next implementation target: pause before v0.7 unless explicitly requested.
 - Preferred stack direction: Vue 3 + TypeScript frontend, FastAPI + Python backend, SQLite + SQLAlchemy persistence.
 - `docs/` and `agent/` are local documentation directories by current user request and are ignored by Git.
 
@@ -39,7 +39,7 @@ Read deeper documentation only when it is relevant to the current task.
 - Do not overwrite or revert user changes unless explicitly requested.
 - Keep `agent/` as AI working documentation and ignored by Git unless the user explicitly wants it versioned.
 - Keep `docs/` ignored by Git per current user request. Local docs still matter for project coordination.
-- v0.5 has been pushed on `feature/v0.1-minimal-agent`; latest pushed baseline before v0.6 is `4d15e01 docs: avoid stale pushed commit note`. Use `git log -1` for the latest exact commit.
+- v0.6 has been pushed on `feature/v0.1-minimal-agent`; use `git log -1` for the latest exact commit.
 
 ## Verification
 

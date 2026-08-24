@@ -12,7 +12,7 @@ The project is intentionally not a generic chatbot. The UI emphasizes task execu
 - v0.3 Persistence: complete and pushed on `feature/v0.1-minimal-agent`.
 - v0.4 LangGraph: complete and pushed.
 - v0.5 Human-in-the-loop: complete and pushed.
-- v0.6 Memory / State: verified locally; commit and push pending.
+- v0.6 Memory / State: complete and pushed on `feature/v0.1-minimal-agent`.
 - Web Search remains stubbed.
 - MCP, Docker, CI, auth, SaaS, multi-agent, real Web Search, and complex Vector Memory scope remain deferred.
 
