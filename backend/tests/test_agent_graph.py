@@ -3,6 +3,7 @@ from typing import Any
 from backend.app.agent.graph import AgentGraphRunner, describe_agent_graph
 from backend.app.llm.provider import LlmMessage
 from backend.app.tools.calculator import CalculatorTool
+from backend.app.tools.mcp_calculator import McpCalculatorTool
 from backend.app.tools.registry import ToolRegistry
 
 
@@ -81,6 +82,25 @@ def test_agent_graph_executes_tool_and_returns_final_answer() -> None:
     assert result.status == "success"
     assert result.final_answer == "Done."
     assert [step.step_type for step in result.steps] == ["tool_call", "final_answer"]
+    assert result.steps[0].tool_name == "calculator"
+    assert result.steps[0].tool_input == {"expression": "2+2"}
+    assert result.steps[0].tool_output == {"result": 4}
+    assert provider.messages_seen[1][2] == {
+        "role": "tool",
+        "tool_call_id": "call_1",
+        "content": '{"result": 4}',
+    }
+
+
+def test_agent_graph_executes_mcp_calculator_tool_and_returns_final_answer() -> None:
+    provider = ToolCallThenFinalProvider()
+    runner = AgentGraphRunner(provider, ToolRegistry([McpCalculatorTool()]), max_steps=4)
+
+    result = runner.run("What is 2+2?")
+
+    assert result.status == "success"
+    assert result.final_answer == "Done."
+    assert result.steps[0].step_type == "tool_call"
     assert result.steps[0].tool_name == "calculator"
     assert result.steps[0].tool_input == {"expression": "2+2"}
     assert result.steps[0].tool_output == {"result": 4}
