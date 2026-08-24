@@ -1,9 +1,10 @@
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 
 from backend.app.tools import mcp_calculator
-from backend.app.tools.mcp_calculator import McpCalculatorTool
+from backend.app.tools.mcp_calculator import McpCalculatorTool, _extract_payload
 
 
 def test_mcp_calculator_returns_same_success_shape_as_local_calculator() -> None:
@@ -14,12 +15,33 @@ def test_mcp_calculator_returns_same_success_shape_as_local_calculator() -> None
     assert result.error is None
 
 
+def test_mcp_calculator_normalizes_numeric_expression_like_local_calculator() -> None:
+    result = McpCalculatorTool().execute({"expression": 123})
+
+    assert result.ok is True
+    assert result.output == {"result": 123}
+    assert result.error is None
+
+
 def test_mcp_calculator_maps_tool_errors_to_tool_result() -> None:
     result = McpCalculatorTool().execute({"expression": "__import__('os')"})
 
     assert result.ok is False
     assert result.output is None
     assert result.error == "Expression contains unsupported syntax."
+
+
+@pytest.mark.parametrize("error_attr", ["isError", "is_error"])
+def test_extract_payload_maps_mcp_error_text_without_json_decode_error(
+    error_attr: str,
+) -> None:
+    result = SimpleNamespace(content=[SimpleNamespace(text="Input validation error")])
+    setattr(result, error_attr, True)
+
+    assert _extract_payload(result) == {
+        "ok": False,
+        "error": "Input validation error",
+    }
 
 
 def test_run_async_raises_timeout_when_helper_thread_does_not_finish(

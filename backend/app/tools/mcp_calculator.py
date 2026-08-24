@@ -24,8 +24,9 @@ class McpCalculatorTool:
     requires_approval = CalculatorTool.requires_approval
 
     def execute(self, arguments: dict[str, Any]) -> ToolResult:
+        mcp_arguments = {"expression": str(arguments.get("expression", ""))}
         try:
-            payload = _run_async(_call_mcp_calculator(arguments))
+            payload = _run_async(_call_mcp_calculator(mcp_arguments))
         except Exception as exc:
             return ToolResult(ok=False, error=f"MCP calculator failed: {exc}")
 
@@ -90,7 +91,16 @@ def _extract_payload(result: Any) -> dict[str, Any]:
     if content:
         text = getattr(content[0], "text", None)
         if text:
-            parsed = json.loads(text)
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError as exc:
+                if getattr(result, "isError", False) or getattr(
+                    result, "is_error", False
+                ):
+                    return {"ok": False, "error": text}
+                raise ValueError(
+                    "MCP calculator returned a non-JSON text response."
+                ) from exc
             if isinstance(parsed, dict):
                 return parsed
 
