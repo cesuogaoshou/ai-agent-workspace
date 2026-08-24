@@ -1,10 +1,14 @@
 from typing import Any
 
-from mcp.server.mcpserver.server import MCPServer
+from mcp.server.fastmcp import FastMCP
 
 from backend.app.tools.calculator import CalculatorTool
 
 
+mcp = FastMCP("ai-agent-workspace-calculator")
+
+
+@mcp.tool(name=CalculatorTool.name, description=CalculatorTool.description)
 def calculator(expression: str) -> dict[str, Any]:
     result = CalculatorTool().execute({"expression": expression})
     if result.ok:
@@ -12,19 +16,8 @@ def calculator(expression: str) -> dict[str, Any]:
     return {"ok": False, "error": result.error}
 
 
-def create_server() -> MCPServer[Any]:
-    server: MCPServer[Any] = MCPServer("ai-agent-workspace-calculator")
-    server.add_tool(
-        calculator,
-        name=CalculatorTool.name,
-        description=CalculatorTool.description,
-        structured_output=True,
-    )
-    return server
-
-
 def main() -> None:
-    create_server().run("stdio")
+    mcp.run()
 
 
 if __name__ == "__main__":
