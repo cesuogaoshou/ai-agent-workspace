@@ -187,6 +187,20 @@ Use the final demo to show the existing single-Agent workspace rather than new v
 
 Local `docs/DEMO.md` contains the capture checklist used for this workspace.
 
+## Screenshots
+
+Calculator trace with public execution events:
+
+![AI Agent Workspace calculator trace](assets/screenshots/ai-agent-workspace-trace.png)
+
+Human approval panel for a sensitive tool call:
+
+![AI Agent Workspace approval panel](assets/screenshots/ai-agent-workspace-approval.png)
+
+Mobile layout with task composer and run list:
+
+![AI Agent Workspace mobile layout](assets/screenshots/ai-agent-workspace-mobile.png)
+
 ## Version Route
 
 ```text
