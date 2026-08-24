@@ -15,8 +15,8 @@ Read deeper documentation only when it is relevant to the current task.
 
 - Project name: AI Agent Workspace.
 - Goal: build a visual, traceable, extensible single-Agent workspace.
-- Current implementation phase: v0.6 Memory / State complete and pushed.
-- Recommended next implementation target: pause before v0.7 unless explicitly requested.
+- Current implementation phase: v0.7 Agent Evaluation complete locally; push pending.
+- Recommended next implementation target: push v0.7, then pause before v0.8 unless explicitly requested.
 - Preferred stack direction: Vue 3 + TypeScript frontend, FastAPI + Python backend, SQLite + SQLAlchemy persistence.
 - `docs/` and `agent/` are local documentation directories by current user request and are ignored by Git.
 
@@ -39,7 +39,7 @@ Read deeper documentation only when it is relevant to the current task.
 - Do not overwrite or revert user changes unless explicitly requested.
 - Keep `agent/` as AI working documentation and ignored by Git unless the user explicitly wants it versioned.
 - Keep `docs/` ignored by Git per current user request. Local docs still matter for project coordination.
-- v0.6 has been pushed on `feature/v0.1-minimal-agent`; use `git log -1` for the latest exact commit.
+- v0.7 is complete locally on `feature/v0.1-minimal-agent`; use `git log -1` for the latest exact commit after push.
 
 ## Verification
 
@@ -53,6 +53,7 @@ Read deeper documentation only when it is relevant to the current task.
   - `.venv\Scripts\python.exe -m compileall backend`
 - Latest v0.5 full verification: backend pytest `90 passed, 1 skipped`; compileall exit 0; frontend tests `13 passed`; frontend build exit 0.
 - Latest v0.6 full verification: backend pytest `93 passed, 1 skipped`; compileall exit 0; frontend tests `13 passed`; frontend build exit 0.
+- Latest v0.7 full verification: backend pytest `106 passed, 1 skipped`; compileall exit 0; frontend tests `13 passed`; frontend build exit 0.
 
 ## Local Environment Notes
 

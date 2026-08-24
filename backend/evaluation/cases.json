@@ -1,0 +1,161 @@
+[
+  {
+    "case_id": "no_tool_direct_answer",
+    "category": "no_tool",
+    "task": "Answer directly with a short greeting.",
+    "script": [
+      {
+        "type": "final",
+        "content": "Hello from the evaluation harness."
+      }
+    ],
+    "expected_status": "success",
+    "expected_tools": [],
+    "expected_tool_failures": 0,
+    "expects_approval": false,
+    "expected_final_answer": "Hello from the evaluation harness."
+  },
+  {
+    "case_id": "calculator_success",
+    "category": "calculator",
+    "task": "Calculate 21 * 2.",
+    "script": [
+      {
+        "type": "tool_call",
+        "tool_name": "calculator",
+        "arguments": {
+          "expression": "21*2"
+        }
+      },
+      {
+        "type": "final",
+        "content": "The result is 42."
+      }
+    ],
+    "expected_status": "success",
+    "expected_tools": [
+      "calculator"
+    ],
+    "expected_tool_failures": 0,
+    "expects_approval": false,
+    "expected_final_answer": "The result is 42."
+  },
+  {
+    "case_id": "web_search_stub_success",
+    "category": "web_search",
+    "task": "Search for the current project status.",
+    "script": [
+      {
+        "type": "tool_call",
+        "tool_name": "web_search",
+        "arguments": {
+          "query": "AI Agent Workspace project status"
+        }
+      },
+      {
+        "type": "final",
+        "content": "The stub search returned a traceable result."
+      }
+    ],
+    "expected_status": "success",
+    "expected_tools": [
+      "web_search"
+    ],
+    "expected_tool_failures": 0,
+    "expects_approval": false,
+    "expected_final_answer": "The stub search returned a traceable result."
+  },
+  {
+    "case_id": "multi_tool_calculator_and_search",
+    "category": "multi_tool",
+    "task": "Calculate 6 * 7 and search for project status.",
+    "script": [
+      {
+        "type": "tool_call",
+        "tool_name": "calculator",
+        "arguments": {
+          "expression": "6*7"
+        }
+      },
+      {
+        "type": "tool_call",
+        "tool_name": "web_search",
+        "arguments": {
+          "query": "AI Agent Workspace status"
+        }
+      },
+      {
+        "type": "final",
+        "content": "Calculation and stub search completed."
+      }
+    ],
+    "expected_status": "success",
+    "expected_tools": [
+      "calculator",
+      "web_search"
+    ],
+    "expected_tool_failures": 0,
+    "expects_approval": false,
+    "expected_final_answer": "Calculation and stub search completed."
+  },
+  {
+    "case_id": "tool_failure_unknown_tool",
+    "category": "tool_failure",
+    "task": "Call an unavailable tool and recover.",
+    "script": [
+      {
+        "type": "tool_call",
+        "tool_name": "missing_tool",
+        "arguments": {
+          "value": "example"
+        }
+      },
+      {
+        "type": "final",
+        "content": "The missing tool failure was handled."
+      }
+    ],
+    "expected_status": "success",
+    "expected_tools": [
+      "missing_tool"
+    ],
+    "expected_tool_failures": 1,
+    "expects_approval": false,
+    "expected_final_answer": "The missing tool failure was handled."
+  },
+  {
+    "case_id": "approval_required_sensitive_tool",
+    "category": "approval",
+    "task": "Use the approval-gated evaluation tool.",
+    "script": [
+      {
+        "type": "tool_call",
+        "tool_name": "eval_sensitive_echo",
+        "arguments": {
+          "value": "approval check"
+        }
+      },
+      {
+        "type": "final",
+        "content": "Approval was required."
+      }
+    ],
+    "expected_status": "waiting_for_approval",
+    "expected_tools": [
+      "eval_sensitive_echo"
+    ],
+    "expected_tool_failures": 0,
+    "expects_approval": true
+  },
+  {
+    "case_id": "rag_deferred",
+    "category": "rag",
+    "task": "Query the deferred RAG knowledge tool.",
+    "script": [],
+    "expected_status": "skipped",
+    "expected_tools": [],
+    "expected_tool_failures": 0,
+    "expects_approval": false,
+    "skip_reason": "RAG tool is outside the current v0.7 scope."
+  }
+]

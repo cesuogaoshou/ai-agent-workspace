@@ -13,6 +13,7 @@ The project is intentionally not a generic chatbot. The UI emphasizes task execu
 - v0.4 LangGraph: complete and pushed.
 - v0.5 Human-in-the-loop: complete and pushed.
 - v0.6 Memory / State: complete and pushed on `feature/v0.1-minimal-agent`.
+- v0.7 Agent Evaluation: complete locally; push pending.
 - Web Search remains stubbed.
 - MCP, Docker, CI, auth, SaaS, multi-agent, real Web Search, and complex Vector Memory scope remain deferred.
 
@@ -51,6 +52,7 @@ backend/
     schemas/
     services/
     tools/
+  evaluation/
   tests/
 
 workspace_files/
@@ -129,6 +131,12 @@ Backend:
 ```
 
 The explicit `--basetemp` and disabled cache are useful in restricted Windows sandbox sessions where the default user temp directory or `.pytest_cache` may be unreadable.
+
+Run the deterministic v0.7 evaluation harness:
+
+```powershell
+.venv\Scripts\python.exe -m backend.evaluation.run
+```
 
 ## Version Route
 
