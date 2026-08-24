@@ -19,6 +19,7 @@ def isolated_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any
         "agent_max_steps": 8,
         "file_reader_root": "workspace_files",
         "web_search_mode": "stub",
+        "calculator_tool_mode": "local",
     }
 
     def fake_get_settings() -> Settings:

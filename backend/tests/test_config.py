@@ -20,3 +20,4 @@ def test_settings_accept_deepseek_values() -> None:
     assert settings.file_reader_root == "workspace_files"
     assert settings.web_search_mode == "stub"
     assert settings.database_url == "sqlite:///workspace_files/agent_runs.sqlite3"
+    assert settings.calculator_tool_mode == "local"

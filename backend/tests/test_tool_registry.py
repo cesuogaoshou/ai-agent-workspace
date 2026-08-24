@@ -1,6 +1,8 @@
 from backend.app.tools.calculator import CalculatorTool
 from backend.app.tools.base import ToolResult
 from backend.app.tools.registry import ToolRegistry
+from backend.app.api.tools import build_registry
+from backend.app.config import Settings
 
 
 class NamedTool:
@@ -25,6 +27,42 @@ def test_registry_lists_openai_compatible_tools() -> None:
 
     assert tools[0]["type"] == "function"
     assert tools[0]["function"]["name"] == "calculator"
+
+
+def test_default_built_registry_exposes_calculator_metadata(monkeypatch) -> None:
+    settings = Settings(_env_file=None)
+
+    def fake_get_settings() -> Settings:
+        return settings
+
+    monkeypatch.setattr("backend.app.api.tools.get_settings", fake_get_settings)
+
+    registry = build_registry()
+    metadata = {item["name"]: item for item in registry.metadata()}
+
+    assert metadata["calculator"]["description"] == CalculatorTool.description
+    assert metadata["calculator"]["requires_approval"] == CalculatorTool.requires_approval
+
+
+def test_built_registry_uses_mcp_calculator_mode(monkeypatch) -> None:
+    settings = Settings(_env_file=None, calculator_tool_mode="mcp")
+
+    def fake_get_settings() -> Settings:
+        return settings
+
+    monkeypatch.setattr("backend.app.api.tools.get_settings", fake_get_settings)
+
+    registry = build_registry()
+    result = registry.execute("calculator", {"expression": "2+2"})
+    llm_tool = next(
+        tool for tool in registry.as_llm_tools() if tool["function"]["name"] == "calculator"
+    )
+
+    assert settings.calculator_tool_mode == "mcp"
+    assert result.ok is True
+    assert result.output == {"result": 4}
+    assert llm_tool["function"]["name"] == "calculator"
+    assert llm_tool["function"]["parameters"] == CalculatorTool.parameters
 
 
 def test_registry_dispatches_tool() -> None:
