@@ -14,8 +14,9 @@ The project is intentionally not a generic chatbot. The UI emphasizes task execu
 - v0.5 Human-in-the-loop: complete and pushed.
 - v0.6 Memory / State: complete and pushed on `feature/v0.1-minimal-agent`.
 - v0.7 Agent Evaluation: complete and pushed.
+- v0.8 MCP: complete; adds one MCP-backed Calculator path for comparison.
 - Web Search remains stubbed.
-- MCP, Docker, CI, auth, SaaS, multi-agent, real Web Search, and complex Vector Memory scope remain deferred.
+- Docker, CI, auth, SaaS, multi-agent, real Web Search, RAG, and complex Vector Memory scope remain deferred.
 
 ## Current Stack
 
@@ -34,6 +35,7 @@ Backend:
 - Uvicorn
 - DeepSeek OpenAI-compatible provider
 - SQLite + SQLAlchemy durable run store
+- MCP Python SDK for the optional MCP-backed Calculator tool path
 
 ## Repository Layout
 
@@ -76,6 +78,14 @@ Start the API server from the repo root:
 ```
 
 Run history is stored in SQLite by default at `workspace_files/agent_runs.sqlite3`. Override it with `DATABASE_URL` when needed, for example `sqlite:///workspace_files/custom_runs.sqlite3`.
+
+Calculator uses the local Python tool by default. Set `CALCULATOR_TOOL_MODE=mcp` to route calculator calls through the local MCP-backed Calculator adapter for comparison.
+
+### Function Tool vs MCP Tool
+
+The local Function Tool path is the default because it is simple, fast, and runs in-process. It is the right fit for built-in deterministic tools such as Calculator.
+
+The MCP-backed Calculator path proves the extension point for tools that may later live outside the backend process or be shared across clients. It adds stdio subprocess overhead and transport failure modes, so v0.8 keeps it opt-in and limited to Calculator instead of migrating every tool.
 
 Useful backend endpoints:
 
@@ -163,7 +173,7 @@ v0.7 Agent Evaluation
   -> fixed eval cases and metrics
 
 v0.8 MCP
-  -> migrate one or two tools to MCP for comparison
+  -> one MCP-backed Calculator path for comparison with the local Function Tool
 
 v1.0 Project Freeze
   -> complete portfolio-ready demo, tests, and packaging
