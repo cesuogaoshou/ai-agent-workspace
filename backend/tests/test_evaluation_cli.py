@@ -20,6 +20,7 @@ def test_evaluation_cli_prints_json_summary() -> None:
     assert payload["metadata"]["provider"] == "scripted_evaluation_provider"
     assert payload["metadata"]["max_steps"] == 8
     assert payload["metadata"]["tool_selection_metric"] == "exact_sequence"
+    assert payload["metadata"]["tool_modes"]["calculator"] == "local"
     assert [tool["name"] for tool in payload["metadata"]["tools"]] == [
         "calculator",
         "eval_sensitive_echo",

@@ -6,6 +6,7 @@ from backend.app.agent.loop import AgentLoop
 from backend.app.llm.provider import LlmMessage
 from backend.app.tools.base import ToolResult
 from backend.app.tools.calculator import CalculatorTool
+from backend.app.tools.mcp_calculator import McpCalculatorTool
 from backend.app.tools.registry import ToolRegistry
 from backend.app.tools.web_search import StubWebSearchTool
 from backend.evaluation.dataset import EvaluationCase
@@ -51,11 +52,22 @@ class EvaluationResult:
         }
 
 
-def run_evaluation_cases(cases: list[EvaluationCase], max_steps: int = 8) -> list[EvaluationResult]:
-    return [_run_evaluation_case(case, max_steps=max_steps) for case in cases]
+def run_evaluation_cases(
+    cases: list[EvaluationCase],
+    max_steps: int = 8,
+    calculator_mode: str = "local",
+) -> list[EvaluationResult]:
+    return [
+        _run_evaluation_case(case, max_steps=max_steps, calculator_mode=calculator_mode)
+        for case in cases
+    ]
 
 
-def _run_evaluation_case(case: EvaluationCase, max_steps: int) -> EvaluationResult:
+def _run_evaluation_case(
+    case: EvaluationCase,
+    max_steps: int,
+    calculator_mode: str,
+) -> EvaluationResult:
     if case.skip_reason is not None:
         return EvaluationResult(
             case_id=case.case_id,
@@ -78,7 +90,7 @@ def _run_evaluation_case(case: EvaluationCase, max_steps: int) -> EvaluationResu
     try:
         result = AgentLoop(
             ScriptedEvaluationProvider(case.script),
-            _evaluation_registry(),
+            _evaluation_registry(calculator_mode=calculator_mode),
             max_steps=max_steps,
         ).run(case.task)
     except EvaluationScriptExhausted as exc:
@@ -181,15 +193,25 @@ class EvaluationSensitiveEchoTool:
         return ToolResult(ok=True, output={"echo": str(arguments["value"])})
 
 
-def _evaluation_registry() -> ToolRegistry:
+def _calculator_tool(calculator_mode: str) -> CalculatorTool | McpCalculatorTool:
+    if calculator_mode == "local":
+        return CalculatorTool()
+    if calculator_mode == "mcp":
+        return McpCalculatorTool()
+    raise ValueError(
+        f"Unsupported calculator mode: {calculator_mode}. Expected 'local' or 'mcp'."
+    )
+
+
+def _evaluation_registry(calculator_mode: str = "local") -> ToolRegistry:
     return ToolRegistry(
         [
-            CalculatorTool(),
+            _calculator_tool(calculator_mode),
             StubWebSearchTool(),
             EvaluationSensitiveEchoTool(),
         ]
     )
 
 
-def evaluation_tool_metadata() -> list[dict[str, object]]:
-    return _evaluation_registry().metadata()
+def evaluation_tool_metadata(calculator_mode: str = "local") -> list[dict[str, object]]:
+    return _evaluation_registry(calculator_mode=calculator_mode).metadata()

@@ -5,11 +5,16 @@ from backend.evaluation.harness import evaluation_tool_metadata, run_evaluation_
 from backend.evaluation.metrics import summarize_evaluation_results
 
 DEFAULT_MAX_STEPS = 8
+DEFAULT_CALCULATOR_MODE = "local"
 
 
 def main() -> None:
     cases = load_evaluation_cases()
-    results = run_evaluation_cases(cases, max_steps=DEFAULT_MAX_STEPS)
+    results = run_evaluation_cases(
+        cases,
+        max_steps=DEFAULT_MAX_STEPS,
+        calculator_mode=DEFAULT_CALCULATOR_MODE,
+    )
     summary = summarize_evaluation_results(results)
     print(
         json.dumps(
@@ -23,7 +28,10 @@ def main() -> None:
                     "provider": "scripted_evaluation_provider",
                     "max_steps": DEFAULT_MAX_STEPS,
                     "tool_selection_metric": "exact_sequence",
-                    "tools": evaluation_tool_metadata(),
+                    "tool_modes": {"calculator": DEFAULT_CALCULATOR_MODE},
+                    "tools": evaluation_tool_metadata(
+                        calculator_mode=DEFAULT_CALCULATOR_MODE
+                    ),
                 },
                 "summary": summary.as_dict(),
                 "results": [result.as_dict() for result in results],

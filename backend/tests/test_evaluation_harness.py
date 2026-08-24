@@ -1,5 +1,7 @@
+import pytest
+
 from backend.evaluation.dataset import load_evaluation_cases
-from backend.evaluation.harness import run_evaluation_cases
+from backend.evaluation.harness import evaluation_tool_metadata, run_evaluation_cases
 
 
 def test_run_evaluation_cases_executes_fixed_dataset_with_scripted_provider() -> None:
@@ -88,3 +90,28 @@ def test_run_evaluation_cases_marks_exhausted_script_as_failed() -> None:
     assert result.status == "failed"
     assert result.error == "Evaluation script exhausted."
     assert result.task_success is False
+
+
+def test_evaluation_tool_metadata_defaults_to_local_calculator() -> None:
+    metadata = evaluation_tool_metadata()
+    calculator = next(tool for tool in metadata if tool["name"] == "calculator")
+
+    assert calculator["description"] == "Evaluate deterministic arithmetic expressions."
+
+
+def test_evaluation_tool_metadata_can_select_mcp_calculator() -> None:
+    metadata = evaluation_tool_metadata(calculator_mode="mcp")
+    calculator = next(tool for tool in metadata if tool["name"] == "calculator")
+
+    assert (
+        calculator["description"]
+        == "Evaluate deterministic arithmetic expressions through a local MCP server."
+    )
+
+
+def test_evaluation_tool_metadata_rejects_unknown_calculator_mode() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Unsupported calculator mode: unknown. Expected 'local' or 'mcp'.",
+    ):
+        evaluation_tool_metadata(calculator_mode="unknown")
