@@ -1,6 +1,8 @@
 import asyncio
 import json
+import os
 import sys
+from datetime import timedelta
 from pathlib import Path
 from threading import Thread
 from typing import Any
@@ -10,6 +12,9 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 
 from backend.app.tools.base import ToolResult
 from backend.app.tools.calculator import CalculatorTool
+
+
+MCP_CALL_TIMEOUT_SECONDS = 5.0
 
 
 class McpCalculatorTool:
@@ -36,11 +41,42 @@ async def _call_mcp_calculator(arguments: dict[str, Any]) -> dict[str, Any]:
         args=["-m", "backend.app.mcp.calculator_server"],
         cwd=str(project_root),
     )
-    async with stdio_client(server) as (read_stream, write_stream):
-        async with ClientSession(read_stream, write_stream) as session:
-            await session.initialize()
-            result = await session.call_tool(CalculatorTool.name, arguments)
-            return _extract_payload(result)
+    with open(os.devnull, "w", encoding="utf-8") as errlog:
+        stdio_context = stdio_client(server, errlog=errlog)
+        read_stream, write_stream = await asyncio.wait_for(
+            stdio_context.__aenter__(),
+            timeout=MCP_CALL_TIMEOUT_SECONDS,
+        )
+        try:
+            session_context = ClientSession(read_stream, write_stream)
+            session = await asyncio.wait_for(
+                session_context.__aenter__(),
+                timeout=MCP_CALL_TIMEOUT_SECONDS,
+            )
+            try:
+                await asyncio.wait_for(
+                    session.initialize(),
+                    timeout=MCP_CALL_TIMEOUT_SECONDS,
+                )
+                result = await asyncio.wait_for(
+                    session.call_tool(
+                        CalculatorTool.name,
+                        arguments,
+                        read_timeout_seconds=timedelta(seconds=MCP_CALL_TIMEOUT_SECONDS),
+                    ),
+                    timeout=MCP_CALL_TIMEOUT_SECONDS,
+                )
+                return _extract_payload(result)
+            finally:
+                await asyncio.wait_for(
+                    session_context.__aexit__(None, None, None),
+                    timeout=MCP_CALL_TIMEOUT_SECONDS,
+                )
+        finally:
+            await asyncio.wait_for(
+                stdio_context.__aexit__(None, None, None),
+                timeout=MCP_CALL_TIMEOUT_SECONDS,
+            )
 
 
 def _extract_payload(result: Any) -> dict[str, Any]:
@@ -76,9 +112,12 @@ def _run_async(coro: Any) -> Any:
         except BaseException as exc:
             error["value"] = exc
 
-    thread = Thread(target=runner)
+    thread = Thread(target=runner, daemon=True)
     thread.start()
-    thread.join()
+    thread.join(MCP_CALL_TIMEOUT_SECONDS)
+
+    if thread.is_alive():
+        raise TimeoutError("MCP calculator timed out.")
 
     if "value" in error:
         raise error["value"]
