@@ -54,7 +54,7 @@ Read deeper documentation only when it is relevant to the current task.
 - Latest v0.5 full verification: backend pytest `90 passed, 1 skipped`; compileall exit 0; frontend tests `13 passed`; frontend build exit 0.
 - Latest v0.6 full verification: backend pytest `93 passed, 1 skipped`; compileall exit 0; frontend tests `13 passed`; frontend build exit 0.
 - Latest v0.7 full verification: backend pytest `106 passed, 1 skipped`; compileall exit 0; frontend tests `13 passed`; frontend build exit 0.
-- Latest v0.8 full verification: backend pytest `116 passed, 1 skipped`; compileall exit 0; frontend tests `13 passed`; frontend build exit 0.
+- Latest v0.8 full verification: backend pytest `119 passed, 1 skipped`; compileall exit 0; pip check no broken requirements; frontend tests `13 passed`; frontend build exit 0.
 
 ## Local Environment Notes
 
