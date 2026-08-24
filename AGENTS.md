@@ -15,8 +15,8 @@ Read deeper documentation only when it is relevant to the current task.
 
 - Project name: AI Agent Workspace.
 - Goal: build a visual, traceable, extensible single-Agent workspace.
-- Current implementation phase: v0.8 MCP complete.
-- Recommended next implementation target: pause before v1.0 unless explicitly requested.
+- Current implementation phase: v1.0 Project Freeze complete.
+- Recommended next implementation target: pause; future expansion requires a new explicit goal.
 - Preferred stack direction: Vue 3 + TypeScript frontend, FastAPI + Python backend, SQLite + SQLAlchemy persistence.
 - `docs/` and `agent/` are local documentation directories by current user request and are ignored by Git.
 
@@ -55,6 +55,7 @@ Read deeper documentation only when it is relevant to the current task.
 - Latest v0.6 full verification: backend pytest `93 passed, 1 skipped`; compileall exit 0; frontend tests `13 passed`; frontend build exit 0.
 - Latest v0.7 full verification: backend pytest `106 passed, 1 skipped`; compileall exit 0; frontend tests `13 passed`; frontend build exit 0.
 - Latest v0.8 full verification: backend pytest `119 passed, 1 skipped`; compileall exit 0; pip check no broken requirements; frontend tests `13 passed`; frontend build exit 0.
+- Latest v1.0 freeze verification: backend pytest `119 passed, 1 skipped`; compileall exit 0; pip check no broken requirements; evaluation CLI exit 0 with calculator mode `local`; frontend tests `13 passed`; frontend build exit 0.
 
 ## Local Environment Notes
 

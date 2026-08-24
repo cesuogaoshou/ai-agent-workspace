@@ -14,7 +14,8 @@ The project is intentionally not a generic chatbot. The UI emphasizes task execu
 - v0.5 Human-in-the-loop: complete and pushed.
 - v0.6 Memory / State: complete and pushed on `feature/v0.1-minimal-agent`.
 - v0.7 Agent Evaluation: complete and pushed.
-- v0.8 MCP: complete; adds one MCP-backed Calculator path for comparison.
+- v0.8 MCP: complete and pushed; adds one optional MCP-backed Calculator path for comparison.
+- v1.0 Project Freeze: complete; setup, verification, demo materials, and scope closure are finalized.
 - Web Search remains stubbed.
 - Docker, CI, auth, SaaS, multi-agent, real Web Search, RAG, and complex Vector Memory scope remain deferred.
 
@@ -63,6 +64,15 @@ workspace_files/
 
 Local coordination docs live in `docs/` and `agent/`. They are intentionally ignored by Git in this workspace.
 
+## Prerequisites
+
+- Windows PowerShell.
+- Python virtual environment at `.venv\`.
+- Node.js and npm for the Vue frontend.
+- DeepSeek-compatible API credentials in `.env` for live LLM runs.
+
+Do not commit `.env` or print its contents.
+
 ## Backend
 
 Install dependencies into the local virtual environment:
@@ -80,6 +90,15 @@ Start the API server from the repo root:
 Run history is stored in SQLite by default at `workspace_files/agent_runs.sqlite3`. Override it with `DATABASE_URL` when needed, for example `sqlite:///workspace_files/custom_runs.sqlite3`.
 
 Calculator uses the local Python tool by default. Set `CALCULATOR_TOOL_MODE=mcp` to route calculator calls through the local MCP-backed Calculator adapter for comparison.
+
+Start the backend with the optional MCP-backed Calculator mode:
+
+```powershell
+$env:CALCULATOR_TOOL_MODE='mcp'
+.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
+
+The default Calculator mode remains `local`.
 
 ### Function Tool vs MCP Tool
 
@@ -125,6 +144,15 @@ npm run build
 
 ## Verification
 
+Latest v1.0 freeze verification:
+
+- `.venv\Scripts\python.exe -m pytest backend/tests -v --basetemp D:\demo\ai-agent-workspace\.tmp-pytest -p no:cacheprovider`: `119 passed, 1 skipped`.
+- `.venv\Scripts\python.exe -m compileall backend`: exit 0.
+- `.venv\Scripts\python.exe -m pip check`: no broken requirements.
+- `.venv\Scripts\python.exe -m backend.evaluation.run`: exit 0 with `metadata.tool_modes.calculator` set to `local`.
+- `npm.cmd test -- --run` in `frontend/`: `2 passed` test files, `13 passed` tests.
+- `npm.cmd run build` in `frontend/`: exit 0.
+
 Frontend:
 
 ```powershell
@@ -147,6 +175,17 @@ Run the deterministic v0.7 evaluation harness:
 ```powershell
 .venv\Scripts\python.exe -m backend.evaluation.run
 ```
+
+## Demo Walkthrough
+
+Use the final demo to show the existing single-Agent workspace rather than new v1.0 product scope:
+
+1. Calculator tool call: start backend and frontend, submit a calculator task, then confirm the trace shows agent decision, tool call, tool result, status change, and final answer.
+2. Approval: submit a task that triggers a tool marked `requires_approval=True`, approve it, then confirm approval and final result events appear in the trace.
+3. Persistence: complete a run, restart the backend, reopen the frontend, then confirm previous runs remain visible.
+4. Evaluation: run `.venv\Scripts\python.exe -m backend.evaluation.run` and confirm deterministic metrics plus `metadata.tool_modes.calculator`.
+
+Local `docs/DEMO.md` contains the capture checklist used for this workspace.
 
 ## Version Route
 
