@@ -8,6 +8,22 @@ from backend.app.api import agent as agent_api
 from backend.app.config import Settings, get_settings
 from backend.app.llm.provider import LlmMessage
 from backend.app.main import app
+from backend.app.tools.base import ToolResult
+from backend.app.tools.registry import ToolRegistry
+
+
+class PersistentSensitiveEchoTool:
+    name = "sensitive_echo"
+    description = "Echo input after approval."
+    requires_approval = True
+    parameters = {
+        "type": "object",
+        "properties": {"value": {"type": "string"}},
+        "required": ["value"],
+    }
+
+    def execute(self, arguments: dict[str, Any]) -> ToolResult:
+        return ToolResult(ok=True, output={"echo": arguments["value"]})
 
 
 class PersistentFakeDeepSeekProvider:
@@ -22,6 +38,33 @@ class PersistentFakeDeepSeekProvider:
         tools: list[dict[str, Any]],
     ) -> LlmMessage:
         return LlmMessage(role="assistant", content="persisted answer")
+
+
+class PersistentApprovalProvider:
+    def __init__(self, api_key: str, base_url: str, model: str) -> None:
+        self.api_key = api_key
+        self.base_url = base_url
+        self.model = model
+
+    def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+    ) -> LlmMessage:
+        return LlmMessage(
+            role="assistant",
+            content=None,
+            tool_calls=[
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {
+                        "name": "sensitive_echo",
+                        "arguments": '{"value":"hello"}',
+                    },
+                }
+            ],
+        )
 
 
 @pytest.fixture()
@@ -112,3 +155,34 @@ def test_agent_api_reads_persisted_failed_run_after_store_reinitializes(
     assert sensitive_text not in listed.text
     assert sensitive_text not in fetched.text
     assert sensitive_text not in events.text
+
+
+def test_agent_api_does_not_expose_persisted_resume_state_after_store_reinitializes(
+    persisted_agent_api: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("backend.app.api.agent.DeepSeekProvider", PersistentApprovalProvider)
+    monkeypatch.setattr(
+        "backend.app.api.agent.build_registry",
+        lambda: ToolRegistry([PersistentSensitiveEchoTool()]),
+    )
+    client = TestClient(app)
+
+    created = client.post("/api/agent/runs", json={"task": "Needs approval."})
+    agent_api.RUN_STORE = None
+
+    fetched = client.get(f"/api/agent/runs/{created.json()['id']}")
+    listed = client.get("/api/agent/runs")
+    events = client.get(f"/api/agent/runs/{created.json()['id']}/events")
+
+    assert created.status_code == 200
+    assert fetched.status_code == 200
+    assert listed.status_code == 200
+    assert events.status_code == 200
+    assert created.json()["status"] == "waiting_for_approval"
+    assert fetched.json()["status"] == "waiting_for_approval"
+    assert fetched.json()["pending_approval"]["approval_id"] == "approval_1_call_1"
+    assert "resume_state" not in created.text
+    assert "resume_state" not in fetched.text
+    assert "resume_state" not in listed.text
+    assert "resume_state" not in events.text

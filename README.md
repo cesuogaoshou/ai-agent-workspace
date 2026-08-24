@@ -10,8 +10,11 @@ The project is intentionally not a generic chatbot. The UI emphasizes task execu
 - v0.2A Backend Execution Trace: complete.
 - v0.2B Frontend Trace UI: complete.
 - v0.3 Persistence: complete and pushed on `feature/v0.1-minimal-agent`.
+- v0.4 LangGraph: complete and pushed.
+- v0.5 Human-in-the-loop: complete and pushed.
+- v0.6 Memory / State: verified locally; commit and push pending.
 - Web Search remains stubbed.
-- LangGraph, approval flows, MCP, Docker, CI, auth, and SaaS scope remain deferred.
+- MCP, Docker, CI, auth, SaaS, multi-agent, real Web Search, and complex Vector Memory scope remain deferred.
 
 ## Current Stack
 
@@ -78,6 +81,8 @@ Useful backend endpoints:
 - `GET /api/agent/runs`
 - `GET /api/agent/runs/{run_id}`
 - `GET /api/agent/runs/{run_id}/events`
+- `POST /api/agent/runs/{run_id}/approve`
+- `POST /api/agent/runs/{run_id}/reject`
 - `GET /api/tools`
 
 ## Frontend

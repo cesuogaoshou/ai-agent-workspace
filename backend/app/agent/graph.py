@@ -4,7 +4,12 @@ from typing import Any, Literal, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from backend.app.agent.state import AgentRunResult, TraceStep
+from backend.app.agent.state import (
+    AgentRunResult,
+    TraceStep,
+    deserialize_resume_state,
+    serialize_resume_state,
+)
 from backend.app.llm.provider import LlmMessage, LlmProvider
 from backend.app.tools.base import ToolResult
 from backend.app.tools.registry import ToolRegistry
@@ -84,7 +89,7 @@ class AgentGraphRunner:
     def resume(self, resume_state: dict[str, Any] | None, approval_id: str) -> AgentRunResult:
         if resume_state is None:
             raise ValueError("Resume state is required.")
-        state = _deserialize_resume_state(resume_state)
+        state = _coerce_graph_state(deserialize_resume_state(resume_state))
         state["status"] = "running"
         state["approved_approval_id"] = approval_id
         state["resume_from_tool"] = True
@@ -103,7 +108,7 @@ class AgentGraphRunner:
             error=final_state["error"],
             pending_approval=final_state["pending_approval"],
             resume_state=(
-                _serialize_resume_state(final_state)
+                serialize_resume_state(final_state)
                 if final_state["status"] == "waiting_for_approval"
                 else None
             ),
@@ -283,35 +288,5 @@ def _approval_id(step_number: int, tool_call_id: str) -> str:
     return f"approval_{step_number}_{tool_call_id}"
 
 
-def _serialize_resume_state(state: AgentGraphState) -> dict[str, Any]:
-    return {
-        "task": state["task"],
-        "messages": state["messages"],
-        "steps": [step.__dict__ for step in state["steps"]],
-        "current_step": state["current_step"],
-        "latest_response": None,
-        "pending_tool_calls": state["pending_tool_calls"],
-        "status": state["status"],
-        "final_answer": state["final_answer"],
-        "error": state["error"],
-        "pending_approval": state["pending_approval"],
-        "approved_approval_id": None,
-        "resume_from_tool": False,
-    }
-
-
-def _deserialize_resume_state(state: dict[str, Any]) -> AgentGraphState:
-    return {
-        "task": str(state["task"]),
-        "messages": list(state["messages"]),
-        "steps": [TraceStep(**step) for step in state.get("steps", [])],
-        "current_step": int(state["current_step"]),
-        "latest_response": None,
-        "pending_tool_calls": list(state.get("pending_tool_calls", [])),
-        "status": str(state["status"]),
-        "final_answer": state.get("final_answer"),
-        "error": state.get("error"),
-        "pending_approval": state.get("pending_approval"),
-        "approved_approval_id": state.get("approved_approval_id"),
-        "resume_from_tool": bool(state.get("resume_from_tool", False)),
-    }
+def _coerce_graph_state(state: dict[str, Any]) -> AgentGraphState:
+    return AgentGraphState(**state)
